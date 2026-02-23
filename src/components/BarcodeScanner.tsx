@@ -15,11 +15,24 @@ const BarcodeScanner = ({ open, onClose, onScan }: BarcodeScannerProps) => {
   const [externalBuffer, setExternalBuffer] = useState("");
   const [cameraError, setCameraError] = useState("");
   const scannerRef = useRef<any>(null);
+  const scannerRunningRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const bufferTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const lastKeyTime = useRef(0);
   const keyBuffer = useRef("");
+
+  const safeStopScanner = useCallback(async () => {
+    if (scannerRef.current && scannerRunningRef.current) {
+      try {
+        scannerRunningRef.current = false;
+        await scannerRef.current.stop();
+      } catch {
+        // ignore - scanner may already be stopped
+      }
+    }
+    scannerRef.current = null;
+  }, []);
 
   // External scanner detection: listens for rapid keystrokes
   const handleKeyDown = useCallback(
@@ -94,23 +107,27 @@ const BarcodeScanner = ({ open, onClose, onScan }: BarcodeScannerProps) => {
   useEffect(() => {
     if (mode !== "camera" || !open) return;
 
-    let html5QrCode: any = null;
+    let cancelled = false;
 
     const startCamera = async () => {
       try {
+        // Stop any existing scanner first
+        await safeStopScanner();
+
         const { Html5Qrcode } = await import("html5-qrcode");
         const scannerId = "barcode-scanner-region";
 
         // Wait for DOM element
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
+        if (cancelled) return;
         const el = document.getElementById(scannerId);
         if (!el) return;
 
-        html5QrCode = new Html5Qrcode(scannerId);
-        scannerRef.current = html5QrCode;
+        const scanner = new Html5Qrcode(scannerId);
+        scannerRef.current = scanner;
 
-        await html5QrCode.start(
+        await scanner.start(
           { facingMode: "environment" },
           {
             fps: 10,
@@ -120,33 +137,37 @@ const BarcodeScanner = ({ open, onClose, onScan }: BarcodeScannerProps) => {
           (decodedText: string) => {
             setScannedValue(decodedText);
             onScan(decodedText);
-            // Stop after successful scan
-            html5QrCode?.stop().catch(() => {});
+            safeStopScanner();
           },
           () => {} // ignore errors during scanning
         );
+
+        if (!cancelled) {
+          scannerRunningRef.current = true;
+        } else {
+          scanner.stop().catch(() => {});
+        }
       } catch (err: any) {
-        setCameraError(err?.message || "Camera access denied");
+        if (!cancelled) {
+          setCameraError(err?.message || "Camera access denied");
+        }
       }
     };
 
     startCamera();
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      cancelled = true;
+      safeStopScanner();
     };
-  }, [mode, open, onScan]);
+  }, [mode, open, onScan, safeStopScanner]);
 
   // Cleanup on close
   useEffect(() => {
-    if (!open && scannerRef.current) {
-      scannerRef.current.stop().catch(() => {});
-      scannerRef.current = null;
+    if (!open) {
+      safeStopScanner();
     }
-  }, [open]);
+  }, [open, safeStopScanner]);
 
   if (!open) return null;
 
