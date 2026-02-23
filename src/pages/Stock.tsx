@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, X, Eye, Pencil, Trash2, Upload, CheckCircle, Camera } from "lucide-react";
+import { Plus, Search, Package, X, Eye, Pencil, Trash2, Upload, CheckCircle, Camera, ScanLine } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 interface Product {
   id: string;
@@ -32,6 +33,8 @@ const Stock = () => {
   const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", image: "" });
   const [imageUploadSuccess, setImageUploadSuccess] = useState<string | null>(null);
   const [customUnit, setCustomUnit] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanTarget, setScanTarget] = useState<"search" | "new" | "edit">("search");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,14 +102,38 @@ const Stock = () => {
     setSelectedProduct(null);
   };
 
+  const handleBarcodeScan = (barcode: string) => {
+    setShowScanner(false);
+    if (scanTarget === "search") {
+      setSearch(barcode);
+      // Check if product exists
+      const found = products.find(p => p.barcode === barcode);
+      if (found) setSelectedProduct(found);
+    } else if (scanTarget === "new") {
+      setNewProduct({ ...newProduct, barcode });
+    } else if (scanTarget === "edit" && editingProduct) {
+      setEditingProduct({ ...editingProduct, barcode });
+    }
+  };
+
+  const openScanner = (target: "search" | "new" | "edit") => {
+    setScanTarget(target);
+    setShowScanner(true);
+  };
+
   return (
     <div className="px-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-bold text-foreground">Stock Management</h1>
-        <button onClick={() => setShowAdd(true)} className="gradient-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 glow-primary">
-          <Plus size={16} /> Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => openScanner("search")} className="glass-card p-2 rounded-xl text-primary hover:text-primary/80 transition-colors" title="Scan Barcode">
+            <ScanLine size={18} />
+          </button>
+          <button onClick={() => setShowAdd(true)} className="gradient-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 glow-primary">
+            <Plus size={16} /> Add Product
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -118,6 +145,9 @@ const Stock = () => {
           placeholder="Search by name or barcode..."
           className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground w-full outline-none"
         />
+        <button onClick={() => openScanner("search")} className="text-primary hover:text-primary/80 transition-colors">
+          <ScanLine size={16} />
+        </button>
       </div>
 
       {/* Product Grid */}
@@ -198,7 +228,6 @@ const Stock = () => {
                 { key: "costPrice", label: "Cost Price (₹)", type: "number", placeholder: "0" },
                 { key: "sellPrice", label: "Sell Price (₹)", type: "number", placeholder: "0" },
                 { key: "stock", label: "Stock Quantity", type: "number", placeholder: "0" },
-                { key: "barcode", label: "Barcode", type: "text", placeholder: "Scan or enter" },
                 { key: "expiry", label: "Expiry Date", type: "date", placeholder: "" },
               ].map(field => (
                 <div key={field.key}>
@@ -212,6 +241,27 @@ const Stock = () => {
                   />
                 </div>
               ))}
+
+              {/* Barcode with scan button */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Barcode</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Scan or enter barcode"
+                    value={newProduct.barcode || ""}
+                    onChange={e => setNewProduct({ ...newProduct, barcode: e.target.value })}
+                    className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openScanner("new")}
+                    className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary"
+                  >
+                    <ScanLine size={14} /> Scan
+                  </button>
+                </div>
+              </div>
 
               {/* Unit selector */}
               <div>
@@ -366,7 +416,6 @@ const Stock = () => {
                 { key: "costPrice", label: "Cost Price (₹)", type: "number" },
                 { key: "sellPrice", label: "Sell Price (₹)", type: "number" },
                 { key: "stock", label: "Stock Quantity", type: "number" },
-                { key: "barcode", label: "Barcode", type: "text" },
                 { key: "expiry", label: "Expiry Date", type: "date" },
               ].map(field => (
                 <div key={field.key}>
@@ -379,6 +428,26 @@ const Stock = () => {
                   />
                 </div>
               ))}
+
+              {/* Barcode with scan button */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Barcode</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editingProduct.barcode || ""}
+                    onChange={e => setEditingProduct({ ...editingProduct, barcode: e.target.value })}
+                    className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openScanner("edit")}
+                    className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary"
+                  >
+                    <ScanLine size={14} /> Scan
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Unit</label>
                 <div className="flex flex-wrap gap-2">
@@ -416,6 +485,13 @@ const Stock = () => {
           </div>
         </div>
       )}
+
+      {/* Barcode Scanner */}
+      <BarcodeScanner
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleBarcodeScan}
+      />
     </div>
   );
 };
