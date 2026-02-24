@@ -1,61 +1,40 @@
 import { useState } from "react";
-import { Search, Plus, X, Phone, IndianRupee } from "lucide-react";
-
-interface UdhariEntry {
-  id: string;
-  name: string;
-  phone: string;
-  amount: number;
-  date: string;
-}
-
-const initialUdhari: UdhariEntry[] = [
-  { id: "1", name: "Ramesh Kumar", phone: "9876543210", amount: 2500, date: "2026-02-20" },
-  { id: "2", name: "Suresh Yadav", phone: "9876543211", amount: 1800, date: "2026-02-18" },
-  { id: "3", name: "Priya Sharma", phone: "9876543212", amount: 4450, date: "2026-02-15" },
-];
+import { Search, Plus, X, Phone } from "lucide-react";
+import { useStore } from "@/lib/store";
 
 const Udhari = () => {
-  const [entries, setEntries] = useState<UdhariEntry[]>(initialUdhari);
+  const { udhariEntries, addUdhari, payUdhari, deleteUdhari } = useStore();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [showPartial, setShowPartial] = useState<UdhariEntry | null>(null);
+  const [showPartial, setShowPartial] = useState<typeof udhariEntries[0] | null>(null);
   const [partialAmount, setPartialAmount] = useState("");
   const [newEntry, setNewEntry] = useState({ name: "", phone: "", amount: "" });
 
-  const filtered = entries.filter(e =>
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    e.phone.includes(search)
+  const filtered = udhariEntries.filter(e =>
+    e.name.toLowerCase().includes(search.toLowerCase()) || e.phone.includes(search)
   );
 
-  const totalPending = entries.reduce((s, e) => s + e.amount, 0);
+  const totalPending = udhariEntries.reduce((s, e) => s + e.amount, 0);
 
   const handleAdd = () => {
     if (!newEntry.name || !newEntry.amount) return;
-    setEntries([{
+    addUdhari({
       id: Date.now().toString(),
       name: newEntry.name,
       phone: newEntry.phone,
       amount: Number(newEntry.amount),
       date: new Date().toISOString().split("T")[0],
-    }, ...entries]);
+    });
     setNewEntry({ name: "", phone: "", amount: "" });
     setShowAdd(false);
   };
 
   const handlePartialPay = () => {
     if (!showPartial || !partialAmount) return;
-    const amt = Number(partialAmount);
-    setEntries(entries.map(e => {
-      if (e.id !== showPartial.id) return e;
-      const newAmt = e.amount - amt;
-      return newAmt > 0 ? { ...e, amount: newAmt } : e;
-    }).filter(e => e.amount > 0));
+    payUdhari(showPartial.id, Number(partialAmount));
     setShowPartial(null);
     setPartialAmount("");
   };
-
-  const handleDelete = (id: string) => setEntries(entries.filter(e => e.id !== id));
 
   return (
     <div className="px-4 space-y-4">
@@ -66,25 +45,17 @@ const Udhari = () => {
         </button>
       </div>
 
-      {/* Total */}
       <div className="glass-card p-4 glow-accent gradient-card-purple">
         <p className="text-xs text-muted-foreground">Total Pending</p>
         <p className="text-2xl font-display font-bold text-foreground">₹{totalPending.toLocaleString()}</p>
-        <p className="text-xs text-muted-foreground mt-1">{entries.length} customers</p>
+        <p className="text-xs text-muted-foreground mt-1">{udhariEntries.length} customers</p>
       </div>
 
-      {/* Search */}
       <div className="glass-card flex items-center gap-2 px-3 py-2.5">
         <Search size={16} className="text-muted-foreground" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name or phone..."
-          className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground w-full outline-none"
-        />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone..." className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground w-full outline-none" />
       </div>
 
-      {/* Entries */}
       <div className="space-y-2">
         {filtered.map(entry => (
           <div key={entry.id} className="glass-card-hover p-3">
@@ -93,29 +64,28 @@ const Udhari = () => {
                 <p className="text-sm font-medium text-foreground">{entry.name}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Phone size={10} /> {entry.phone} · {entry.date}
+                  {entry.billNo && <span className="ml-1 text-primary">({entry.billNo})</span>}
                 </p>
               </div>
               <p className="font-display font-bold text-warning">₹{entry.amount.toLocaleString()}</p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => { setShowPartial(entry); setPartialAmount(""); }}
-                className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success"
-              >
+              <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success">
                 Receive Payment
               </button>
-              <button
-                onClick={() => handleDelete(entry.id)}
-                className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive"
-              >
+              <button onClick={() => deleteUdhari(entry.id)} className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive">
                 Delete
               </button>
             </div>
           </div>
         ))}
+        {filtered.length === 0 && (
+          <div className="glass-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">No udhari entries found</p>
+          </div>
+        )}
       </div>
 
-      {/* Add Modal */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -133,7 +103,6 @@ const Udhari = () => {
         </div>
       )}
 
-      {/* Partial Payment Modal */}
       {showPartial && (
         <div className="modal-overlay" onClick={() => setShowPartial(null)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
