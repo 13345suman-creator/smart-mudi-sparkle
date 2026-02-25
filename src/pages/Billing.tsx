@@ -264,8 +264,10 @@ const Billing = () => {
         name: udhariName,
         phone: udhariPhone,
         amount: newBill.total,
+        totalBilled: newBill.total,
         date: new Date().toISOString().split("T")[0],
         billNo: newBill.billNo,
+        payments: [],
       });
     }
 

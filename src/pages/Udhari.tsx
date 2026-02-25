@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, X, Phone, Eye } from "lucide-react";
+import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle } from "lucide-react";
 import { useStore, type CompletedBill } from "@/lib/store";
 
 const Udhari = () => {
@@ -8,6 +8,7 @@ const Udhari = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [showPartial, setShowPartial] = useState<typeof udhariEntries[0] | null>(null);
   const [partialAmount, setPartialAmount] = useState("");
+  const [payMethod, setPayMethod] = useState("cash");
   const [newEntry, setNewEntry] = useState({ name: "", phone: "", amount: "" });
   const [showHistory, setShowHistory] = useState<typeof udhariEntries[0] | null>(null);
   const [viewBill, setViewBill] = useState<CompletedBill | null>(null);
@@ -35,7 +36,9 @@ const Udhari = () => {
       name: newEntry.name,
       phone: newEntry.phone,
       amount: Number(newEntry.amount),
+      totalBilled: Number(newEntry.amount),
       date: new Date().toISOString().split("T")[0],
+      payments: [],
     });
     setNewEntry({ name: "", phone: "", amount: "" });
     setShowAdd(false);
@@ -43,9 +46,10 @@ const Udhari = () => {
 
   const handlePartialPay = () => {
     if (!showPartial || !partialAmount) return;
-    payUdhari(showPartial.id, Number(partialAmount));
+    payUdhari(showPartial.id, Number(partialAmount), payMethod);
     setShowPartial(null);
     setPartialAmount("");
+    setPayMethod("cash");
   };
 
   return (
@@ -83,7 +87,7 @@ const Udhari = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <p className="font-display font-bold text-warning">₹{entry.amount.toLocaleString()}</p>
-                  {customerBills.length > 0 && (
+                  {(customerBills.length > 0 || (entry.payments || []).length > 0) && (
                     <button
                       onClick={() => setShowHistory(entry)}
                       className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -138,47 +142,107 @@ const Udhari = () => {
             </div>
             <p className="text-sm text-muted-foreground mb-3">Pending: <span className="text-warning font-bold">₹{showPartial.amount}</span></p>
             <input value={partialAmount} onChange={e => setPartialAmount(e.target.value)} placeholder="Amount received (₹)" type="number" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground mb-3" />
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-1.5">Payment Method</p>
+              <div className="flex gap-2">
+                {["cash", "upi", "other"].map(m => (
+                  <button key={m} onClick={() => setPayMethod(m)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold capitalize transition-colors ${payMethod === m ? 'gradient-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground'}`}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button onClick={handlePartialPay} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">Confirm Payment</button>
           </div>
         </div>
       )}
 
       {/* History Modal */}
-      {showHistory && (
-        <div className="modal-overlay" onClick={() => setShowHistory(null)}>
-          <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-display font-bold text-lg text-foreground">{showHistory.name}</h3>
-                <p className="text-xs text-muted-foreground">{showHistory.phone} · Bill History</p>
+      {showHistory && (() => {
+        const customerBills = getCustomerBills(showHistory.name, showHistory.phone);
+        const totalBilled = showHistory.totalBilled || showHistory.amount;
+        const totalPaidByCustomer = (showHistory.payments || []).reduce((s, p) => s + p.amount, 0);
+        const remaining = showHistory.amount;
+
+        return (
+          <div className="modal-overlay" onClick={() => setShowHistory(null)}>
+            <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-display font-bold text-lg text-foreground">{showHistory.name}</h3>
+                  <p className="text-xs text-muted-foreground">{showHistory.phone}</p>
+                </div>
+                <button onClick={() => setShowHistory(null)} className="text-muted-foreground"><X size={20} /></button>
               </div>
-              <button onClick={() => setShowHistory(null)} className="text-muted-foreground"><X size={20} /></button>
-            </div>
-            <div className="space-y-2">
-              {getCustomerBills(showHistory.name, showHistory.phone).map(bill => (
-                <div key={bill.id} className="glass-card p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-primary">{bill.billNo}</p>
-                    <p className="text-xs text-muted-foreground">{bill.date}</p>
-                    <p className="text-sm font-bold text-foreground">₹{bill.total.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${bill.paymentConfirmed ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                      {bill.paymentConfirmed ? 'Paid' : 'Pending'}
-                    </span>
-                    <button onClick={() => setViewBill(bill)} className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                      <Eye size={14} />
-                    </button>
+
+              {/* Summary Card */}
+              <div className="glass-card p-3 mb-4 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Billed</span>
+                  <span className="font-bold text-foreground">₹{totalBilled.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Paid</span>
+                  <span className="font-bold text-success">₹{totalPaidByCustomer.toLocaleString()}</span>
+                </div>
+                <div className="border-t border-border pt-1.5 flex justify-between text-sm">
+                  <span className="font-semibold text-muted-foreground">Remaining</span>
+                  <span className="font-display font-bold text-warning">₹{remaining.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Payment History */}
+              {(showHistory.payments || []).length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><ArrowDownCircle size={12} /> Payment History</p>
+                  <div className="space-y-1.5">
+                    {(showHistory.payments || []).map(p => (
+                      <div key={p.id} className="glass-card p-2.5 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-success">+ ₹{p.amount.toLocaleString()} received</p>
+                          <p className="text-[10px] text-muted-foreground">{p.date} · <span className="capitalize">{p.method}</span></p>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-medium capitalize">{p.method}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-              {getCustomerBills(showHistory.name, showHistory.phone).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No bill history found</p>
+              )}
+
+              {/* Bill History */}
+              {customerBills.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><IndianRupee size={12} /> Bill History</p>
+                  <div className="space-y-1.5">
+                    {customerBills.map(bill => (
+                      <div key={bill.id} className="glass-card p-2.5 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold text-primary">{bill.billNo}</p>
+                          <p className="text-[10px] text-muted-foreground">{bill.date}</p>
+                          <p className="text-sm font-bold text-foreground">₹{bill.total.toLocaleString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${bill.paymentConfirmed ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                            {bill.paymentConfirmed ? 'Paid' : 'Pending'}
+                          </span>
+                          <button onClick={() => setViewBill(bill)} className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                            <Eye size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {customerBills.length === 0 && (showHistory.payments || []).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No history found</p>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Bill Detail Modal */}
       {viewBill && (

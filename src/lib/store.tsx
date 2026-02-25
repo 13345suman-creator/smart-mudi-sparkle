@@ -22,13 +22,24 @@ export interface CompletedBill {
   paymentConfirmed: boolean;
 }
 
+export interface PaymentRecord {
+  id: string;
+  udhariId: string;
+  amount: number;
+  date: string;
+  method: string; // "cash" | "upi" | "other"
+  note?: string;
+}
+
 export interface UdhariEntry {
   id: string;
   name: string;
   phone: string;
   amount: number;
+  totalBilled: number;
   date: string;
   billNo?: string;
+  payments: PaymentRecord[];
 }
 
 export interface ShopSettings {
@@ -44,7 +55,7 @@ interface StoreContextType {
   confirmBillPayment: (billId: string) => void;
   udhariEntries: UdhariEntry[];
   addUdhari: (entry: UdhariEntry) => void;
-  payUdhari: (id: string, amount: number) => void;
+  payUdhari: (id: string, amount: number, method?: string, note?: string) => void;
   deleteUdhari: (id: string) => void;
   settings: ShopSettings;
   updateSettings: (s: Partial<ShopSettings>) => void;
@@ -72,9 +83,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [bills, setBills] = useState<CompletedBill[]>(() => loadJSON("app_bills", []));
   const [udhariEntries, setUdhariEntries] = useState<UdhariEntry[]>(() =>
     loadJSON("app_udhari", [
-      { id: "1", name: "Ramesh Kumar", phone: "9876543210", amount: 2500, date: "2026-02-20" },
-      { id: "2", name: "Suresh Yadav", phone: "9876543211", amount: 1800, date: "2026-02-18" },
-      { id: "3", name: "Priya Sharma", phone: "9876543212", amount: 4450, date: "2026-02-15" },
+      { id: "1", name: "Ramesh Kumar", phone: "9876543210", amount: 2500, totalBilled: 2500, date: "2026-02-20", payments: [] },
+      { id: "2", name: "Suresh Yadav", phone: "9876543211", amount: 1800, totalBilled: 1800, date: "2026-02-18", payments: [] },
+      { id: "3", name: "Priya Sharma", phone: "9876543212", amount: 4450, totalBilled: 4450, date: "2026-02-15", payments: [] },
     ])
   );
   const [settings, setSettings] = useState<ShopSettings>(() => loadJSON("app_settings", defaultSettings));
@@ -90,20 +101,29 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addUdhari = (entry: UdhariEntry) => {
+    const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
     setUdhariEntries(prev => {
-      const existing = prev.find(e => e.phone === entry.phone && e.name === entry.name);
+      const existing = prev.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
       if (existing) {
         return prev.map(e =>
-          e.id === existing.id ? { ...e, amount: e.amount + entry.amount } : e
+          e.id === existing.id ? { ...e, amount: e.amount + entryWithDefaults.amount, totalBilled: e.totalBilled + entryWithDefaults.amount } : e
         );
       }
-      return [entry, ...prev];
+      return [entryWithDefaults, ...prev];
     });
   };
 
-  const payUdhari = (id: string, amount: number) => {
+  const payUdhari = (id: string, amount: number, method: string = "cash", note?: string) => {
+    const payment: PaymentRecord = {
+      id: Date.now().toString(),
+      udhariId: id,
+      amount,
+      date: new Date().toISOString().split("T")[0],
+      method,
+      note,
+    };
     setUdhariEntries(prev =>
-      prev.map(e => e.id === id ? { ...e, amount: e.amount - amount } : e).filter(e => e.amount > 0)
+      prev.map(e => e.id === id ? { ...e, amount: e.amount - amount, payments: [...(e.payments || []), payment] } : e).filter(e => e.amount > 0)
     );
   };
 
