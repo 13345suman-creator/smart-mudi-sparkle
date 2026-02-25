@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, X, Phone, History, Eye } from "lucide-react";
+import { Search, Plus, X, Phone, Eye } from "lucide-react";
 import { useStore, type CompletedBill } from "@/lib/store";
 
 const Udhari = () => {
@@ -73,15 +73,6 @@ const Udhari = () => {
           const customerBills = getCustomerBills(entry.name, entry.phone);
           return (
             <div key={entry.id} className="glass-card-hover p-3">
-              {/* History button on top */}
-              {customerBills.length > 0 && (
-                <button
-                  onClick={() => setShowHistory(entry)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 mb-2 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20"
-                >
-                  <History size={12} /> View History ({customerBills.length} bills)
-                </button>
-              )}
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-sm font-medium text-foreground">{entry.name}</p>
@@ -90,7 +81,18 @@ const Udhari = () => {
                     {entry.billNo && <span className="ml-1 text-primary">({entry.billNo})</span>}
                   </p>
                 </div>
-                <p className="font-display font-bold text-warning">₹{entry.amount.toLocaleString()}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-display font-bold text-warning">₹{entry.amount.toLocaleString()}</p>
+                  {customerBills.length > 0 && (
+                    <button
+                      onClick={() => setShowHistory(entry)}
+                      className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      title="View History"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success">
