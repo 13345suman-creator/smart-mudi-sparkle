@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, X, Eye, Pencil, Trash2, Upload, CheckCircle, Camera, ScanLine } from "lucide-react";
+import { Plus, Search, Package, X, Eye, Pencil, Trash2, Upload, CheckCircle, Camera, ScanLine, AlertTriangle } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
 interface Product {
@@ -9,17 +9,18 @@ interface Product {
   sellPrice: number;
   unit: string;
   stock: number;
+  lowStockAlert: number;
   expiry: string;
   barcode: string;
   image: string;
 }
 
 const initialProducts: Product[] = [
-  { id: "1", name: "Tata Salt", costPrice: 18, sellPrice: 22, unit: "kg", stock: 45, expiry: "2026-12-01", barcode: "8901234567890", image: "" },
-  { id: "2", name: "Aashirvaad Atta", costPrice: 280, sellPrice: 320, unit: "kg", stock: 12, expiry: "2026-06-15", barcode: "8901234567891", image: "" },
-  { id: "3", name: "Fortune Oil", costPrice: 140, sellPrice: 165, unit: "liter", stock: 3, expiry: "2026-03-20", barcode: "8901234567892", image: "" },
-  { id: "4", name: "Sugar", costPrice: 38, sellPrice: 45, unit: "kg", stock: 28, expiry: "2027-01-01", barcode: "8901234567893", image: "" },
-  { id: "5", name: "Tata Tea", costPrice: 95, sellPrice: 120, unit: "pcs", stock: 0, expiry: "2026-08-10", barcode: "8901234567894", image: "" },
+  { id: "1", name: "Tata Salt", costPrice: 18, sellPrice: 22, unit: "kg", stock: 45, lowStockAlert: 10, expiry: "2026-12-01", barcode: "8901234567890", image: "" },
+  { id: "2", name: "Aashirvaad Atta", costPrice: 280, sellPrice: 320, unit: "kg", stock: 12, lowStockAlert: 5, expiry: "2026-06-15", barcode: "8901234567891", image: "" },
+  { id: "3", name: "Fortune Oil", costPrice: 140, sellPrice: 165, unit: "liter", stock: 3, lowStockAlert: 5, expiry: "2026-03-20", barcode: "8901234567892", image: "" },
+  { id: "4", name: "Sugar", costPrice: 38, sellPrice: 45, unit: "kg", stock: 28, lowStockAlert: 10, expiry: "2027-01-01", barcode: "8901234567893", image: "" },
+  { id: "5", name: "Tata Tea", costPrice: 95, sellPrice: 120, unit: "pcs", stock: 0, lowStockAlert: 5, expiry: "2026-08-10", barcode: "8901234567894", image: "" },
 ];
 
 const UNITS = ["kg", "gram", "liter", "ml", "pcs"];
@@ -30,11 +31,12 @@ const Stock = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", image: "" });
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", image: "", lowStockAlert: 5 });
   const [imageUploadSuccess, setImageUploadSuccess] = useState<string | null>(null);
   const [customUnit, setCustomUnit] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanTarget, setScanTarget] = useState<"search" | "new" | "edit">("search");
+  const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,7 +47,7 @@ const Stock = () => {
 
   const getStatus = (p: Product) => {
     if (p.stock === 0) return { label: "Out", color: "bg-destructive/20 text-destructive", dot: "bg-destructive" };
-    if (p.stock <= 5) return { label: "Low", color: "bg-warning/20 text-warning", dot: "bg-warning" };
+    if (p.stock <= (p.lowStockAlert || 5)) return { label: "Low", color: "bg-warning/20 text-warning", dot: "bg-warning" };
     const expDate = new Date(p.expiry);
     const now = new Date();
     const diffDays = (expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
@@ -80,12 +82,13 @@ const Stock = () => {
       sellPrice: newProduct.sellPrice || 0,
       unit: newProduct.unit || "pcs",
       stock: newProduct.stock || 0,
+      lowStockAlert: newProduct.lowStockAlert || 5,
       expiry: newProduct.expiry || "",
       barcode: newProduct.barcode || "",
       image: newProduct.image || "",
     };
     setProducts([product, ...products]);
-    setNewProduct({ unit: "kg", image: "" });
+    setNewProduct({ unit: "kg", image: "", lowStockAlert: 5 });
     setCustomUnit(false);
     setShowAdd(false);
   };
@@ -100,13 +103,13 @@ const Stock = () => {
   const handleDelete = (id: string) => {
     setProducts(products.filter(p => p.id !== id));
     setSelectedProduct(null);
+    setDeleteConfirm(null);
   };
 
   const handleBarcodeScan = (barcode: string) => {
     setShowScanner(false);
     if (scanTarget === "search") {
       setSearch(barcode);
-      // Check if product exists
       const found = products.find(p => p.barcode === barcode);
       if (found) setSelectedProduct(found);
     } else if (scanTarget === "new") {
@@ -120,6 +123,10 @@ const Stock = () => {
     setScanTarget(target);
     setShowScanner(true);
   };
+
+  // Low stock items for awareness
+  const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= (p.lowStockAlert || 5));
+  const outOfStockItems = products.filter(p => p.stock === 0);
 
   return (
     <div className="px-4 space-y-4">
@@ -135,6 +142,30 @@ const Stock = () => {
           </button>
         </div>
       </div>
+
+      {/* Low Stock Alert Banner */}
+      {(lowStockItems.length > 0 || outOfStockItems.length > 0) && (
+        <div className="glass-card p-3 border border-warning/20">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={14} className="text-warning" />
+            <p className="text-xs font-bold text-warning">Stock Alerts</p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {outOfStockItems.map(p => (
+              <button key={p.id} onClick={() => setSelectedProduct(p)} className="flex-shrink-0 glass-card px-3 py-2 rounded-xl border border-destructive/20 hover:bg-destructive/5 transition-colors">
+                <p className="text-xs font-semibold text-foreground whitespace-nowrap">{p.name}</p>
+                <p className="text-[10px] font-bold text-destructive">Out of Stock</p>
+              </button>
+            ))}
+            {lowStockItems.map(p => (
+              <button key={p.id} onClick={() => setSelectedProduct(p)} className="flex-shrink-0 glass-card px-3 py-2 rounded-xl border border-warning/20 hover:bg-warning/5 transition-colors">
+                <p className="text-xs font-semibold text-foreground whitespace-nowrap">{p.name}</p>
+                <p className="text-[10px] font-bold text-warning">{p.stock} {p.unit} left</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="glass-card flex items-center gap-2 px-3 py-2.5">
@@ -160,23 +191,16 @@ const Stock = () => {
               className="glass-card-hover p-0 overflow-hidden group cursor-pointer"
               onClick={() => setSelectedProduct(p)}
             >
-              {/* Product Image */}
               <div className="relative w-full aspect-square bg-secondary/50 flex items-center justify-center overflow-hidden">
                 {p.image ? (
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+                  <img src={p.image} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 ) : (
                   <Package size={36} className="text-muted-foreground/50" />
                 )}
-                {/* Status Badge */}
                 <span className={`absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-md ${status.color}`}>
                   {status.label}
                 </span>
               </div>
-              {/* Info */}
               <div className="p-3 space-y-1">
                 <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
                 <p className="text-xs text-muted-foreground">Stock: {p.stock} {p.unit}</p>
@@ -201,7 +225,7 @@ const Stock = () => {
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-bold text-lg text-foreground">Add Product</h3>
-              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", image: "" }); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
+              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", image: "", lowStockAlert: 5 }); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
             {/* Image Upload */}
@@ -241,6 +265,21 @@ const Stock = () => {
                   />
                 </div>
               ))}
+
+              {/* Low Stock Alert */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+                  <AlertTriangle size={10} className="text-warning" /> Low Stock Alert
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  value={newProduct.lowStockAlert || ""}
+                  onChange={e => setNewProduct({ ...newProduct, lowStockAlert: Number(e.target.value) })}
+                  className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Alert when stock falls below this quantity</p>
+              </div>
 
               {/* Barcode with scan button */}
               <div>
@@ -308,7 +347,7 @@ const Stock = () => {
         </div>
       )}
 
-      {/* ===== PRODUCT DETAIL MODAL with 3D rotation ===== */}
+      {/* ===== PRODUCT DETAIL MODAL ===== */}
       {selectedProduct && !editingProduct && (
         <div className="modal-overlay" onClick={() => setSelectedProduct(null)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -317,7 +356,6 @@ const Stock = () => {
               <button onClick={() => setSelectedProduct(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
-            {/* 3D Rotating Image */}
             <div className="flex justify-center mb-5">
               <div className="product-3d-container">
                 <div className="product-3d-image">
@@ -332,7 +370,6 @@ const Stock = () => {
               </div>
             </div>
 
-            {/* Status */}
             {(() => {
               const status = getStatus(selectedProduct);
               return (
@@ -343,13 +380,13 @@ const Stock = () => {
               );
             })()}
 
-            {/* Details Grid */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
                 { l: "Cost Price", v: `₹${selectedProduct.costPrice}` },
                 { l: "Sell Price", v: `₹${selectedProduct.sellPrice}` },
                 { l: "Unit", v: selectedProduct.unit },
                 { l: "Stock", v: `${selectedProduct.stock} ${selectedProduct.unit}` },
+                { l: "Low Alert", v: `${selectedProduct.lowStockAlert || 5} ${selectedProduct.unit}` },
                 { l: "Expiry", v: selectedProduct.expiry || "N/A" },
                 { l: "Barcode", v: selectedProduct.barcode || "N/A" },
               ].map(item => (
@@ -360,16 +397,14 @@ const Stock = () => {
               ))}
             </div>
 
-            {/* Profit Info */}
             <div className="glass-card p-3 rounded-xl mt-3 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Profit per unit</span>
               <span className="text-sm font-bold text-success">₹{selectedProduct.sellPrice - selectedProduct.costPrice}</span>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => handleDelete(selectedProduct.id)}
+                onClick={() => setDeleteConfirm(selectedProduct)}
                 className="flex-1 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors"
               >
                 <Trash2 size={14} /> Delete
@@ -394,7 +429,6 @@ const Stock = () => {
               <button onClick={() => setEditingProduct(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
-            {/* Image */}
             <div
               onClick={() => editFileInputRef.current?.click()}
               className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30"
@@ -416,6 +450,7 @@ const Stock = () => {
                 { key: "costPrice", label: "Cost Price (₹)", type: "number" },
                 { key: "sellPrice", label: "Sell Price (₹)", type: "number" },
                 { key: "stock", label: "Stock Quantity", type: "number" },
+                { key: "lowStockAlert", label: "Low Stock Alert", type: "number" },
                 { key: "expiry", label: "Expiry Date", type: "date" },
               ].map(field => (
                 <div key={field.key}>
@@ -429,7 +464,6 @@ const Stock = () => {
                 </div>
               ))}
 
-              {/* Barcode with scan button */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Barcode</label>
                 <div className="flex gap-2">
@@ -471,7 +505,32 @@ const Stock = () => {
         </div>
       )}
 
-      {/* ===== IMAGE UPLOAD SUCCESS POPUP ===== */}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" style={{ zIndex: 200 }} onClick={() => setDeleteConfirm(null)}>
+          <div className="glass-card w-[85%] max-w-sm p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle size={28} className="text-destructive" />
+              </div>
+              <h3 className="font-display font-bold text-lg text-foreground">Delete Product?</h3>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete <span className="font-bold text-foreground">{deleteConfirm.name}</span>? This cannot be undone.
+              </p>
+              <div className="flex gap-2 w-full mt-2">
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-muted/50 text-foreground border border-border">
+                  Cancel
+                </button>
+                <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Upload Success */}
       {imageUploadSuccess && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "hsl(220 20% 5% / 0.7)", backdropFilter: "blur(6px)" }}>
           <div className="glass-card p-6 rounded-2xl animate-scale-in flex flex-col items-center gap-4 max-w-xs w-[85%]">
@@ -486,7 +545,6 @@ const Stock = () => {
         </div>
       )}
 
-      {/* Barcode Scanner */}
       <BarcodeScanner
         open={showScanner}
         onClose={() => setShowScanner(false)}
