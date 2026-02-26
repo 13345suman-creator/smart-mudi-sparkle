@@ -27,6 +27,7 @@ export interface PaymentRecord {
   udhariId: string;
   amount: number;
   date: string;
+  time: string;
   method: string; // "cash" | "upi" | "other"
   note?: string;
 }
@@ -49,14 +50,27 @@ export interface ShopSettings {
   upiIds: string[];
 }
 
+export interface PaidOffCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  totalBilled: number;
+  totalPaid: number;
+  clearedDate: string;
+  payments: PaymentRecord[];
+  billNos: string[];
+}
+
 interface StoreContextType {
   bills: CompletedBill[];
   addBill: (bill: CompletedBill) => void;
   confirmBillPayment: (billId: string) => void;
   udhariEntries: UdhariEntry[];
+  paidOffCustomers: PaidOffCustomer[];
   addUdhari: (entry: UdhariEntry) => void;
   payUdhari: (id: string, amount: number, method?: string, note?: string) => void;
   deleteUdhari: (id: string) => void;
+  deletePaidOff: (id: string) => void;
   settings: ShopSettings;
   updateSettings: (s: Partial<ShopSettings>) => void;
 }
@@ -88,10 +102,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       { id: "3", name: "Priya Sharma", phone: "9876543212", amount: 4450, totalBilled: 4450, date: "2026-02-15", payments: [] },
     ])
   );
+  const [paidOffCustomers, setPaidOffCustomers] = useState<PaidOffCustomer[]>(() => loadJSON("app_paidoff", []));
   const [settings, setSettings] = useState<ShopSettings>(() => loadJSON("app_settings", defaultSettings));
 
   useEffect(() => { localStorage.setItem("app_bills", JSON.stringify(bills)); }, [bills]);
   useEffect(() => { localStorage.setItem("app_udhari", JSON.stringify(udhariEntries)); }, [udhariEntries]);
+  useEffect(() => { localStorage.setItem("app_paidoff", JSON.stringify(paidOffCustomers)); }, [paidOffCustomers]);
   useEffect(() => { localStorage.setItem("app_settings", JSON.stringify(settings)); }, [settings]);
 
   const addBill = (bill: CompletedBill) => setBills(prev => [bill, ...prev]);
@@ -114,25 +130,44 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const payUdhari = (id: string, amount: number, method: string = "cash", note?: string) => {
+    const now = new Date();
     const payment: PaymentRecord = {
       id: Date.now().toString(),
       udhariId: id,
       amount,
-      date: new Date().toISOString().split("T")[0],
+      date: now.toISOString().split("T")[0],
+      time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
       method,
       note,
     };
-    setUdhariEntries(prev =>
-      prev.map(e => e.id === id ? { ...e, amount: e.amount - amount, payments: [...(e.payments || []), payment] } : e).filter(e => e.amount > 0)
-    );
+    setUdhariEntries(prev => {
+      const updated = prev.map(e => e.id === id ? { ...e, amount: e.amount - amount, payments: [...(e.payments || []), payment] } : e);
+      // Move fully paid to paidOff
+      const fullyPaid = updated.find(e => e.id === id && e.amount <= 0);
+      if (fullyPaid) {
+        setPaidOffCustomers(pOff => [{
+          id: fullyPaid.id,
+          name: fullyPaid.name,
+          phone: fullyPaid.phone,
+          totalBilled: fullyPaid.totalBilled,
+          totalPaid: (fullyPaid.payments || []).reduce((s, p) => s + p.amount, 0),
+          clearedDate: now.toISOString().split("T")[0],
+          payments: fullyPaid.payments || [],
+          billNos: fullyPaid.billNo ? [fullyPaid.billNo] : [],
+        }, ...pOff]);
+        return updated.filter(e => e.amount > 0);
+      }
+      return updated;
+    });
   };
 
   const deleteUdhari = (id: string) => setUdhariEntries(prev => prev.filter(e => e.id !== id));
+  const deletePaidOff = (id: string) => setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
 
   const updateSettings = (s: Partial<ShopSettings>) => setSettings(prev => ({ ...prev, ...s }));
 
   return (
-    <StoreContext.Provider value={{ bills, addBill, confirmBillPayment, udhariEntries, addUdhari, payUdhari, deleteUdhari, settings, updateSettings }}>
+    <StoreContext.Provider value={{ bills, addBill, confirmBillPayment, udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, settings, updateSettings }}>
       {children}
     </StoreContext.Provider>
   );
