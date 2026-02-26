@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle } from "lucide-react";
-import { useStore, type CompletedBill } from "@/lib/store";
+import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle, UserCheck, Trash2, Download, Share2, Clock } from "lucide-react";
+import { useStore, type CompletedBill, type PaidOffCustomer } from "@/lib/store";
 
 const Udhari = () => {
-  const { udhariEntries, addUdhari, payUdhari, deleteUdhari, bills } = useStore();
+  const { udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, bills } = useStore();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showPartial, setShowPartial] = useState<typeof udhariEntries[0] | null>(null);
@@ -12,6 +12,9 @@ const Udhari = () => {
   const [newEntry, setNewEntry] = useState({ name: "", phone: "", amount: "" });
   const [showHistory, setShowHistory] = useState<typeof udhariEntries[0] | null>(null);
   const [viewBill, setViewBill] = useState<CompletedBill | null>(null);
+  const [showPaidOff, setShowPaidOff] = useState<PaidOffCustomer | null>(null);
+  const [showMergePrompt, setShowMergePrompt] = useState(false);
+  const [pendingNewEntry, setPendingNewEntry] = useState<{ name: string; phone: string; amount: string } | null>(null);
 
   const getCustomerBills = (name: string, phone: string) => {
     return bills.filter(b =>
@@ -31,17 +34,47 @@ const Udhari = () => {
 
   const handleAdd = () => {
     if (!newEntry.name || !newEntry.amount) return;
+    // Check if this customer exists in paidOff list
+    const existsInPaidOff = paidOffCustomers.find(
+      p => p.phone === newEntry.phone && p.name.toLowerCase() === newEntry.name.toLowerCase()
+    );
+    if (existsInPaidOff) {
+      setPendingNewEntry(newEntry);
+      setShowMergePrompt(true);
+      return;
+    }
+    doAddUdhari(newEntry);
+  };
+
+  const doAddUdhari = (entry: { name: string; phone: string; amount: string }) => {
     addUdhari({
       id: Date.now().toString(),
-      name: newEntry.name,
-      phone: newEntry.phone,
-      amount: Number(newEntry.amount),
-      totalBilled: Number(newEntry.amount),
+      name: entry.name,
+      phone: entry.phone,
+      amount: Number(entry.amount),
+      totalBilled: Number(entry.amount),
       date: new Date().toISOString().split("T")[0],
       payments: [],
     });
     setNewEntry({ name: "", phone: "", amount: "" });
     setShowAdd(false);
+    setShowMergePrompt(false);
+    setPendingNewEntry(null);
+  };
+
+  const handleMerge = () => {
+    if (!pendingNewEntry) return;
+    // Remove from paidOff and add as new udhari (addUdhari handles merge with existing)
+    const existing = paidOffCustomers.find(
+      p => p.phone === pendingNewEntry.phone && p.name.toLowerCase() === pendingNewEntry.name.toLowerCase()
+    );
+    if (existing) deletePaidOff(existing.id);
+    doAddUdhari(pendingNewEntry);
+  };
+
+  const handleNewSeparate = () => {
+    if (!pendingNewEntry) return;
+    doAddUdhari(pendingNewEntry);
   };
 
   const handlePartialPay = () => {
@@ -52,6 +85,34 @@ const Udhari = () => {
     setPayMethod("cash");
   };
 
+  const handleDownloadPaidOff = (customer: PaidOffCustomer) => {
+    const lines = [
+      `Customer: ${customer.name}`,
+      `Phone: ${customer.phone}`,
+      `Total Billed: ₹${customer.totalBilled}`,
+      `Total Paid: ₹${customer.totalPaid}`,
+      `Cleared: ${customer.clearedDate}`,
+      `\nPayment History:`,
+      ...(customer.payments || []).map(p => `  ₹${p.amount} via ${p.method} on ${p.date} at ${p.time || 'N/A'}`),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${customer.name.replace(/\s+/g, "_")}_udhari_cleared.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSharePaidOff = async (customer: PaidOffCustomer) => {
+    const text = `Udhari Cleared ✅\nCustomer: ${customer.name}\nPhone: ${customer.phone}\nTotal: ₹${customer.totalBilled}\nPaid: ₹${customer.totalPaid}\nCleared: ${customer.clearedDate}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "Udhari Cleared", text }); } catch {}
+    } else {
+      navigator.clipboard.writeText(text);
+    }
+  };
+
   return (
     <div className="px-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -60,6 +121,28 @@ const Udhari = () => {
           <Plus size={16} /> Add
         </button>
       </div>
+
+      {/* Paid Off Customers Strip */}
+      {paidOffCustomers.length > 0 && (
+        <div className="glass-card p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <UserCheck size={14} className="text-success" />
+            <p className="text-xs font-semibold text-success">Fully Paid ({paidOffCustomers.length})</p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {paidOffCustomers.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setShowPaidOff(c)}
+                className="flex-shrink-0 glass-card px-3 py-2 rounded-xl hover:bg-success/5 transition-colors border border-success/20"
+              >
+                <p className="text-xs font-semibold text-foreground whitespace-nowrap">{c.name}</p>
+                <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="glass-card p-4 glow-accent gradient-card-purple">
         <p className="text-xs text-muted-foreground">Total Pending</p>
@@ -93,7 +176,7 @@ const Udhari = () => {
                       className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                       title="View History"
                     >
-                      <Eye size={16} />
+                      <Eye size={14} />
                     </button>
                   )}
                 </div>
@@ -116,6 +199,7 @@ const Udhari = () => {
         )}
       </div>
 
+      {/* Add Udhari Modal */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -133,6 +217,30 @@ const Udhari = () => {
         </div>
       )}
 
+      {/* Merge Prompt Modal */}
+      {showMergePrompt && pendingNewEntry && (
+        <div className="modal-overlay" onClick={() => { setShowMergePrompt(false); setPendingNewEntry(null); }}>
+          <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display font-bold text-foreground">Customer Found</h3>
+              <button onClick={() => { setShowMergePrompt(false); setPendingNewEntry(null); }} className="text-muted-foreground"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              <span className="font-semibold text-foreground">{pendingNewEntry.name}</span> has a cleared udhari record. What would you like to do?
+            </p>
+            <div className="space-y-2">
+              <button onClick={handleMerge} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">
+                Merge with Previous Record
+              </button>
+              <button onClick={handleNewSeparate} className="w-full py-3 rounded-xl font-semibold text-sm bg-muted/50 text-foreground border border-border">
+                Create New Udhari
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receive Payment Modal */}
       {showPartial && (
         <div className="modal-overlay" onClick={() => setShowPartial(null)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -201,7 +309,9 @@ const Udhari = () => {
                       <div key={p.id} className="glass-card p-2.5 flex items-center justify-between">
                         <div>
                           <p className="text-xs font-medium text-success">+ ₹{p.amount.toLocaleString()} received</p>
-                          <p className="text-[10px] text-muted-foreground">{p.date} · <span className="capitalize">{p.method}</span></p>
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            {p.date} {p.time && <><Clock size={8} /> {p.time}</>} · <span className="capitalize">{p.method}</span>
+                          </p>
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-medium capitalize">{p.method}</span>
                       </div>
@@ -223,8 +333,14 @@ const Udhari = () => {
                           <p className="text-sm font-bold text-foreground">₹{bill.total.toLocaleString()}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${bill.paymentConfirmed ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                            {bill.paymentConfirmed ? 'Paid' : 'Pending'}
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            bill.paymentMode === "udhari" 
+                              ? 'bg-warning/10 text-warning' 
+                              : bill.paymentConfirmed 
+                                ? 'bg-success/10 text-success' 
+                                : 'bg-warning/10 text-warning'
+                          }`}>
+                            {bill.paymentMode === "udhari" ? 'Udhari' : bill.paymentConfirmed ? 'Paid' : 'Pending'}
                           </span>
                           <button onClick={() => setViewBill(bill)} className="p-1.5 rounded-lg bg-primary/10 text-primary">
                             <Eye size={14} />
@@ -255,7 +371,6 @@ const Udhari = () => {
               </div>
               <button onClick={() => setViewBill(null)} className="text-muted-foreground"><X size={20} /></button>
             </div>
-
             <div className="space-y-1 mb-3">
               <div className="flex justify-between text-xs text-muted-foreground font-semibold border-b border-border pb-1">
                 <span className="flex-1">Item</span>
@@ -272,15 +387,88 @@ const Udhari = () => {
                 </div>
               ))}
             </div>
-
             <div className="border-t border-border pt-2 flex justify-between items-center">
               <div>
-                <p className="text-xs text-muted-foreground">Payment: <span className="text-foreground font-medium">{viewBill.paymentMode}{viewBill.upiApp ? ` (${viewBill.upiApp})` : ''}</span></p>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${viewBill.paymentConfirmed ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                  {viewBill.paymentConfirmed ? 'Payment Done' : 'Payment Pending'}
+                <p className="text-xs text-muted-foreground">Payment: <span className="text-foreground font-medium">{viewBill.paymentMode === "udhari" ? "Udhari" : viewBill.paymentMode}{viewBill.upiApp ? ` (${viewBill.upiApp})` : ''}</span></p>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  viewBill.paymentMode === "udhari" 
+                    ? 'bg-warning/10 text-warning' 
+                    : viewBill.paymentConfirmed 
+                      ? 'bg-success/10 text-success' 
+                      : 'bg-warning/10 text-warning'
+                }`}>
+                  {viewBill.paymentMode === "udhari" ? 'Udhari' : viewBill.paymentConfirmed ? 'Payment Done' : 'Payment Pending'}
                 </span>
               </div>
               <p className="font-display font-bold text-lg text-foreground">₹{viewBill.total.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paid Off Customer Detail Modal */}
+      {showPaidOff && (
+        <div className="modal-overlay" onClick={() => setShowPaidOff(null)}>
+          <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-display font-bold text-lg text-foreground">{showPaidOff.name}</h3>
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={10} /> {showPaidOff.phone}</p>
+              </div>
+              <button onClick={() => setShowPaidOff(null)} className="text-muted-foreground"><X size={20} /></button>
+            </div>
+
+            {/* Summary */}
+            <div className="glass-card p-3 mb-4 space-y-1.5 border border-success/20">
+              <div className="flex items-center gap-1.5 mb-1">
+                <UserCheck size={14} className="text-success" />
+                <span className="text-xs font-bold text-success">Fully Cleared</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Total Billed</span>
+                <span className="font-bold text-foreground">₹{showPaidOff.totalBilled.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Total Paid</span>
+                <span className="font-bold text-success">₹{showPaidOff.totalPaid.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Cleared On</span>
+                <span className="font-medium text-foreground">{showPaidOff.clearedDate}</span>
+              </div>
+            </div>
+
+            {/* Payment History */}
+            {(showPaidOff.payments || []).length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><ArrowDownCircle size={12} /> Payment History</p>
+                <div className="space-y-1.5">
+                  {(showPaidOff.payments || []).map(p => (
+                    <div key={p.id} className="glass-card p-2.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-success">+ ₹{p.amount.toLocaleString()} received</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          {p.date} {p.time && <><Clock size={8} /> {p.time}</>} · <span className="capitalize">{p.method}</span>
+                        </p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-medium capitalize">{p.method}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button onClick={() => handleDownloadPaidOff(showPaidOff)} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-primary/10 text-primary flex items-center justify-center gap-1.5">
+                <Download size={14} /> Download
+              </button>
+              <button onClick={() => handleSharePaidOff(showPaidOff)} className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-accent text-accent-foreground flex items-center justify-center gap-1.5">
+                <Share2 size={14} /> Share
+              </button>
+              <button onClick={() => { deletePaidOff(showPaidOff.id); setShowPaidOff(null); }} className="py-2.5 px-4 rounded-xl text-xs font-semibold bg-destructive/10 text-destructive flex items-center justify-center gap-1.5">
+                <Trash2 size={14} />
+              </button>
             </div>
           </div>
         </div>
