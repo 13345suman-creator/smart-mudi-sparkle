@@ -1,42 +1,33 @@
 import { useState, useRef } from "react";
-import { Plus, Search, Package, X, Eye, Pencil, Trash2, Upload, CheckCircle, Camera, ScanLine, AlertTriangle } from "lucide-react";
+import { Plus, Search, Package, X, Eye, Pencil, Trash2, CheckCircle, Camera, ScanLine, AlertTriangle, Loader2 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
-
-interface Product {
-  id: string;
-  name: string;
-  costPrice: number;
-  sellPrice: number;
-  unit: string;
-  stock: number;
-  lowStockAlert: number;
-  expiry: string;
-  barcode: string;
-  image: string;
-}
-
-const initialProducts: Product[] = [
-  { id: "1", name: "Tata Salt", costPrice: 18, sellPrice: 22, unit: "kg", stock: 45, lowStockAlert: 10, expiry: "2026-12-01", barcode: "8901234567890", image: "" },
-  { id: "2", name: "Aashirvaad Atta", costPrice: 280, sellPrice: 320, unit: "kg", stock: 12, lowStockAlert: 5, expiry: "2026-06-15", barcode: "8901234567891", image: "" },
-  { id: "3", name: "Fortune Oil", costPrice: 140, sellPrice: 165, unit: "liter", stock: 3, lowStockAlert: 5, expiry: "2026-03-20", barcode: "8901234567892", image: "" },
-  { id: "4", name: "Sugar", costPrice: 38, sellPrice: 45, unit: "kg", stock: 28, lowStockAlert: 10, expiry: "2027-01-01", barcode: "8901234567893", image: "" },
-  { id: "5", name: "Tata Tea", costPrice: 95, sellPrice: 120, unit: "pcs", stock: 0, lowStockAlert: 5, expiry: "2026-08-10", barcode: "8901234567894", image: "" },
-];
+import { useStore, type Product } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { compressImage, blobToDataURL } from "@/lib/imageUtils";
+import { toast } from "sonner";
 
 const UNITS = ["kg", "gram", "liter", "ml", "pcs"];
 
 const Stock = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const { user } = useAuth();
+  const { products, addProduct, updateProduct, deleteProduct, loading } = useStore();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", image: "", lowStockAlert: 5 });
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [editImagePreview, setEditImagePreview] = useState<string>("");
+  const [imageFile, setImageFile] = useState<Blob | null>(null);
+  const [editImageFile, setEditImageFile] = useState<Blob | null>(null);
   const [imageUploadSuccess, setImageUploadSuccess] = useState<string | null>(null);
   const [customUnit, setCustomUnit] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanTarget, setScanTarget] = useState<"search" | "new" | "edit">("search");
   const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,54 +47,107 @@ const Stock = () => {
     return { label: "Safe", color: "bg-success/20 text-success", dot: "bg-success" };
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, target: "new" | "edit") => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: "new" | "edit") => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
+    try {
+      const compressed = await compressImage(file);
+      const preview = await blobToDataURL(compressed);
       if (target === "new") {
-        setNewProduct({ ...newProduct, image: dataUrl });
-      } else if (editingProduct) {
-        setEditingProduct({ ...editingProduct, image: dataUrl });
+        setImagePreview(preview);
+        setImageFile(compressed);
+      } else {
+        setEditImagePreview(preview);
+        setEditImageFile(compressed);
       }
-      setImageUploadSuccess(dataUrl);
+      setImageUploadSuccess(preview);
       setTimeout(() => setImageUploadSuccess(null), 2500);
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error("Image compression failed");
+    }
   };
 
-  const handleAdd = () => {
+  const uploadImageToStorage = async (productId: string, blob: Blob): Promise<string> => {
+    if (!user) throw new Error("Not authenticated");
+    const storageRef = ref(storage, `users/${user.uid}/products/${productId}.jpg`);
+    await uploadBytes(storageRef, blob);
+    return getDownloadURL(storageRef);
+  };
+
+  const deleteImageFromStorage = async (productId: string) => {
+    if (!user) return;
+    try {
+      const storageRef = ref(storage, `users/${user.uid}/products/${productId}.jpg`);
+      await deleteObject(storageRef);
+    } catch { /* Image may not exist */ }
+  };
+
+  const handleAdd = async () => {
     if (!newProduct.name || !newProduct.sellPrice) return;
-    const product: Product = {
-      id: Date.now().toString(),
-      name: newProduct.name || "",
-      costPrice: newProduct.costPrice || 0,
-      sellPrice: newProduct.sellPrice || 0,
-      unit: newProduct.unit || "pcs",
-      stock: newProduct.stock || 0,
-      lowStockAlert: newProduct.lowStockAlert || 5,
-      expiry: newProduct.expiry || "",
-      barcode: newProduct.barcode || "",
-      image: newProduct.image || "",
-    };
-    setProducts([product, ...products]);
-    setNewProduct({ unit: "kg", image: "", lowStockAlert: 5 });
-    setCustomUnit(false);
-    setShowAdd(false);
+    setUploading(true);
+    try {
+      const productId = Date.now().toString();
+      let imageUrl = "";
+      if (imageFile) {
+        imageUrl = await uploadImageToStorage(productId, imageFile);
+      }
+      const product: Product = {
+        id: productId,
+        name: newProduct.name || "",
+        costPrice: newProduct.costPrice || 0,
+        sellPrice: newProduct.sellPrice || 0,
+        unit: newProduct.unit || "pcs",
+        stock: newProduct.stock || 0,
+        lowStockAlert: newProduct.lowStockAlert || 5,
+        expiry: newProduct.expiry || "",
+        barcode: newProduct.barcode || "",
+        imageUrl,
+      };
+      await addProduct(product);
+      setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
+      setImagePreview("");
+      setImageFile(null);
+      setCustomUnit(false);
+      setShowAdd(false);
+      toast.success("Product added successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add product");
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editingProduct) return;
-    setProducts(products.map(p => p.id === editingProduct.id ? editingProduct : p));
-    setSelectedProduct(editingProduct);
-    setEditingProduct(null);
+    setUploading(true);
+    try {
+      let imageUrl = editingProduct.imageUrl;
+      if (editImageFile) {
+        imageUrl = await uploadImageToStorage(editingProduct.id, editImageFile);
+      }
+      await updateProduct({ ...editingProduct, imageUrl });
+      setSelectedProduct({ ...editingProduct, imageUrl });
+      setEditingProduct(null);
+      setEditImagePreview("");
+      setEditImageFile(null);
+      toast.success("Product updated!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update");
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
-    setSelectedProduct(null);
-    setDeleteConfirm(null);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteImageFromStorage(id);
+      await deleteProduct(id);
+      setSelectedProduct(null);
+      setDeleteConfirm(null);
+      toast.success("Product deleted!");
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
 
   const handleBarcodeScan = (barcode: string) => {
@@ -124,9 +168,19 @@ const Stock = () => {
     setShowScanner(true);
   };
 
-  // Low stock items for awareness
   const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= (p.lowStockAlert || 5));
   const outOfStockItems = products.filter(p => p.stock === 0);
+
+  if (loading) {
+    return (
+      <div className="px-4 flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={24} className="text-primary animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 space-y-4">
@@ -170,12 +224,7 @@ const Stock = () => {
       {/* Search */}
       <div className="glass-card flex items-center gap-2 px-3 py-2.5">
         <Search size={16} className="text-muted-foreground" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name or barcode..."
-          className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground w-full outline-none"
-        />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or barcode..." className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground w-full outline-none" />
         <button onClick={() => openScanner("search")} className="text-primary hover:text-primary/80 transition-colors">
           <ScanLine size={16} />
         </button>
@@ -186,14 +235,10 @@ const Stock = () => {
         {filtered.map((p) => {
           const status = getStatus(p);
           return (
-            <div
-              key={p.id}
-              className="glass-card-hover p-0 overflow-hidden group cursor-pointer"
-              onClick={() => setSelectedProduct(p)}
-            >
+            <div key={p.id} className="glass-card-hover p-0 overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(p)}>
               <div className="relative w-full aspect-square bg-secondary/50 flex items-center justify-center overflow-hidden">
-                {p.image ? (
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                {p.imageUrl ? (
+                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 ) : (
                   <Package size={36} className="text-muted-foreground/50" />
                 )}
@@ -206,10 +251,7 @@ const Stock = () => {
                 <p className="text-xs text-muted-foreground">Stock: {p.stock} {p.unit}</p>
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs font-bold text-primary">₹{p.sellPrice}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelectedProduct(p); }}
-                    className="text-[10px] font-semibold px-2.5 py-1 rounded-lg gradient-primary text-primary-foreground flex items-center gap-1"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedProduct(p); }} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg gradient-primary text-primary-foreground flex items-center gap-1">
                     <Eye size={10} /> View
                   </button>
                 </div>
@@ -219,28 +261,33 @@ const Stock = () => {
         })}
       </div>
 
+      {products.length === 0 && !loading && (
+        <div className="glass-card p-8 text-center">
+          <Package size={40} className="text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No products yet. Add your first product!</p>
+        </div>
+      )}
+
       {/* ===== ADD PRODUCT MODAL ===== */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-bold text-lg text-foreground">Add Product</h3>
-              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", image: "", lowStockAlert: 5 }); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
+              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 }); setImagePreview(""); setImageFile(null); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
             {/* Image Upload */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30"
-            >
-              {newProduct.image ? (
-                <img src={newProduct.image} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-xl" />
               ) : (
                 <>
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <Camera size={22} className="text-primary" />
                   </div>
                   <p className="text-xs text-muted-foreground">Tap to upload image</p>
+                  <p className="text-[10px] text-muted-foreground">Auto-compressed to max 500KB</p>
                 </>
               )}
             </div>
@@ -256,13 +303,7 @@ const Stock = () => {
               ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
-                  <input
-                    type={field.type}
-                    placeholder={field.placeholder}
-                    value={(newProduct as any)[field.key] || ""}
-                    onChange={e => setNewProduct({ ...newProduct, [field.key]: field.type === "number" ? Number(e.target.value) : e.target.value })}
-                    className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg"
-                  />
+                  <input type={field.type} placeholder={field.placeholder} value={(newProduct as any)[field.key] || ""} onChange={e => setNewProduct({ ...newProduct, [field.key]: field.type === "number" ? Number(e.target.value) : e.target.value })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg" />
                 </div>
               ))}
 
@@ -271,32 +312,16 @@ const Stock = () => {
                 <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
                   <AlertTriangle size={10} className="text-warning" /> Low Stock Alert
                 </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 5"
-                  value={newProduct.lowStockAlert || ""}
-                  onChange={e => setNewProduct({ ...newProduct, lowStockAlert: Number(e.target.value) })}
-                  className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg"
-                />
+                <input type="number" placeholder="e.g. 5" value={newProduct.lowStockAlert || ""} onChange={e => setNewProduct({ ...newProduct, lowStockAlert: Number(e.target.value) })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg" />
                 <p className="text-[10px] text-muted-foreground mt-1">Alert when stock falls below this quantity</p>
               </div>
 
-              {/* Barcode with scan button */}
+              {/* Barcode */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Barcode</label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Scan or enter barcode"
-                    value={newProduct.barcode || ""}
-                    onChange={e => setNewProduct({ ...newProduct, barcode: e.target.value })}
-                    className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => openScanner("new")}
-                    className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary"
-                  >
+                  <input type="text" placeholder="Scan or enter barcode" value={newProduct.barcode || ""} onChange={e => setNewProduct({ ...newProduct, barcode: e.target.value })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono" />
+                  <button type="button" onClick={() => openScanner("new")} className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary">
                     <ScanLine size={14} /> Scan
                   </button>
                 </div>
@@ -308,39 +333,24 @@ const Stock = () => {
                 {!customUnit ? (
                   <div className="flex flex-wrap gap-2">
                     {UNITS.map(u => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => setNewProduct({ ...newProduct, unit: u })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${newProduct.unit === u ? "gradient-primary text-primary-foreground glow-primary" : "glass-card text-muted-foreground hover:text-foreground"}`}
-                      >
+                      <button key={u} type="button" onClick={() => setNewProduct({ ...newProduct, unit: u })} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${newProduct.unit === u ? "gradient-primary text-primary-foreground glow-primary" : "glass-card text-muted-foreground hover:text-foreground"}`}>
                         {u}
                       </button>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => { setCustomUnit(true); setNewProduct({ ...newProduct, unit: "" }); }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold glass-card text-muted-foreground hover:text-foreground"
-                    >
+                    <button type="button" onClick={() => { setCustomUnit(true); setNewProduct({ ...newProduct, unit: "" }); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold glass-card text-muted-foreground hover:text-foreground">
                       Custom
                     </button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter unit..."
-                      value={newProduct.unit || ""}
-                      onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })}
-                      className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg"
-                    />
+                    <input type="text" placeholder="Enter unit..." value={newProduct.unit || ""} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg" />
                     <button type="button" onClick={() => { setCustomUnit(false); setNewProduct({ ...newProduct, unit: "kg" }); }} className="text-xs text-muted-foreground px-2">Back</button>
                   </div>
                 )}
               </div>
 
-              <button onClick={handleAdd} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary">
-                Add Product
+              <button onClick={handleAdd} disabled={uploading} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary disabled:opacity-50 flex items-center justify-center gap-2">
+                {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : "Add Product"}
               </button>
             </div>
           </div>
@@ -359,8 +369,8 @@ const Stock = () => {
             <div className="flex justify-center mb-5">
               <div className="product-3d-container">
                 <div className="product-3d-image">
-                  {selectedProduct.image ? (
-                    <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover rounded-2xl" />
+                  {selectedProduct.imageUrl ? (
+                    <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover rounded-2xl" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-secondary rounded-2xl">
                       <Package size={48} className="text-muted-foreground/40" />
@@ -403,16 +413,10 @@ const Stock = () => {
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setDeleteConfirm(selectedProduct)}
-                className="flex-1 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors"
-              >
+              <button onClick={() => setDeleteConfirm(selectedProduct)} className="flex-1 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors">
                 <Trash2 size={14} /> Delete
               </button>
-              <button
-                onClick={() => setEditingProduct({ ...selectedProduct })}
-                className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary"
-              >
+              <button onClick={() => { setEditingProduct({ ...selectedProduct }); setEditImagePreview(""); setEditImageFile(null); }} className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary">
                 <Pencil size={14} /> Edit
               </button>
             </div>
@@ -429,15 +433,12 @@ const Stock = () => {
               <button onClick={() => setEditingProduct(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
-            <div
-              onClick={() => editFileInputRef.current?.click()}
-              className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30"
-            >
-              {editingProduct.image ? (
-                <img src={editingProduct.image} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+            <div onClick={() => editFileInputRef.current?.click()} className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30">
+              {editImagePreview || editingProduct.imageUrl ? (
+                <img src={editImagePreview || editingProduct.imageUrl} alt="Preview" className="w-full h-full object-cover rounded-xl" />
               ) : (
                 <>
-                  <Upload size={22} className="text-primary" />
+                  <Camera size={22} className="text-primary" />
                   <p className="text-xs text-muted-foreground">Tap to upload image</p>
                 </>
               )}
@@ -455,29 +456,15 @@ const Stock = () => {
               ].map(field => (
                 <div key={field.key}>
                   <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
-                  <input
-                    type={field.type}
-                    value={(editingProduct as any)[field.key] || ""}
-                    onChange={e => setEditingProduct({ ...editingProduct, [field.key]: field.type === "number" ? Number(e.target.value) : e.target.value })}
-                    className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg"
-                  />
+                  <input type={field.type} value={(editingProduct as any)[field.key] || ""} onChange={e => setEditingProduct({ ...editingProduct, [field.key]: field.type === "number" ? Number(e.target.value) : e.target.value })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg" />
                 </div>
               ))}
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Barcode</label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={editingProduct.barcode || ""}
-                    onChange={e => setEditingProduct({ ...editingProduct, barcode: e.target.value })}
-                    className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => openScanner("edit")}
-                    className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary"
-                  >
+                  <input type="text" value={editingProduct.barcode || ""} onChange={e => setEditingProduct({ ...editingProduct, barcode: e.target.value })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-1 focus:ring-primary rounded-lg font-mono" />
+                  <button type="button" onClick={() => openScanner("edit")} className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-lg flex items-center gap-1 text-xs font-semibold glow-primary">
                     <ScanLine size={14} /> Scan
                   </button>
                 </div>
@@ -486,19 +473,14 @@ const Stock = () => {
                 <label className="text-xs text-muted-foreground mb-1 block">Unit</label>
                 <div className="flex flex-wrap gap-2">
                   {UNITS.map(u => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => setEditingProduct({ ...editingProduct, unit: u })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground" : "glass-card text-muted-foreground"}`}
-                    >
+                    <button key={u} type="button" onClick={() => setEditingProduct({ ...editingProduct, unit: u })} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground" : "glass-card text-muted-foreground"}`}>
                       {u}
                     </button>
                   ))}
                 </div>
               </div>
-              <button onClick={handleEdit} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary">
-                Save Changes
+              <button onClick={handleEdit} disabled={uploading} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary disabled:opacity-50 flex items-center justify-center gap-2">
+                {uploading ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : "Save Changes"}
               </button>
             </div>
           </div>
@@ -518,12 +500,8 @@ const Stock = () => {
                 Are you sure you want to delete <span className="font-bold text-foreground">{deleteConfirm.name}</span>? This cannot be undone.
               </p>
               <div className="flex gap-2 w-full mt-2">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-muted/50 text-foreground border border-border">
-                  Cancel
-                </button>
-                <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">
-                  Delete
-                </button>
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-muted/50 text-foreground border border-border">Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">Delete</button>
               </div>
             </div>
           </div>
@@ -545,11 +523,7 @@ const Stock = () => {
         </div>
       )}
 
-      <BarcodeScanner
-        open={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={handleBarcodeScan}
-      />
+      <BarcodeScanner open={showScanner} onClose={() => setShowScanner(false)} onScan={handleBarcodeScan} />
     </div>
   );
 };

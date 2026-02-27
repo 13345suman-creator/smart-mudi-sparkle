@@ -1,8 +1,11 @@
-import { Bell, User } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth";
+import { useStore } from "@/lib/store";
 
 const DashboardHeader = () => {
-  const [shopName] = useState("Smart Mudi Khana");
+  const { user, logout } = useAuth();
+  const { settings } = useStore();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
 
@@ -30,12 +33,18 @@ const DashboardHeader = () => {
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center glow-primary">
-            <span className="text-primary-foreground font-bold text-sm">SM</span>
-          </div>
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/30" />
+          ) : (
+            <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center glow-primary">
+              <span className="text-primary-foreground font-bold text-sm">
+                {(user?.displayName || "U")[0].toUpperCase()}
+              </span>
+            </div>
+          )}
           <div>
             <p className="text-xs text-muted-foreground">{greeting} 👋</p>
-            <p className="text-sm font-medium text-foreground">Owner</p>
+            <p className="text-sm font-medium text-foreground">{user?.displayName || "Owner"}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -43,8 +52,8 @@ const DashboardHeader = () => {
             <Bell size={18} className="text-muted-foreground" />
             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-[10px] flex items-center justify-center text-foreground font-bold">3</span>
           </button>
-          <button className="glass-card w-9 h-9 flex items-center justify-center rounded-xl">
-            <User size={18} className="text-muted-foreground" />
+          <button onClick={logout} className="glass-card w-9 h-9 flex items-center justify-center rounded-xl" title="Logout">
+            <LogOut size={18} className="text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -53,7 +62,7 @@ const DashboardHeader = () => {
       <div className="relative z-10 text-center float-animation">
         <div className="glass-card inline-block px-8 py-4 glow-primary">
           <h1 className="font-display text-2xl font-bold gradient-text tracking-tight">
-            {shopName}
+            {settings.shopName}
           </h1>
           <p className="text-xs text-muted-foreground mt-1">{currentDate}</p>
         </div>

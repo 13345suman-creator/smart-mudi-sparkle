@@ -1,4 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "./auth";
+import { db } from "./firebase";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+  getDoc,
+  writeBatch,
+} from "firebase/firestore";
 
 export interface BillItem {
   id: string;
@@ -28,7 +40,7 @@ export interface PaymentRecord {
   amount: number;
   date: string;
   time: string;
-  method: string; // "cash" | "upi" | "other"
+  method: string;
   note?: string;
 }
 
@@ -61,6 +73,19 @@ export interface PaidOffCustomer {
   billNos: string[];
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  costPrice: number;
+  sellPrice: number;
+  unit: string;
+  stock: number;
+  lowStockAlert: number;
+  expiry: string;
+  barcode: string;
+  imageUrl: string;
+}
+
 interface StoreContextType {
   bills: CompletedBill[];
   addBill: (bill: CompletedBill) => void;
@@ -73,6 +98,11 @@ interface StoreContextType {
   deletePaidOff: (id: string) => void;
   settings: ShopSettings;
   updateSettings: (s: Partial<ShopSettings>) => void;
+  products: Product[];
+  addProduct: (product: Product) => void;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (id: string) => void;
+  loading: boolean;
 }
 
 const defaultSettings: ShopSettings = {
@@ -84,52 +114,90 @@ const defaultSettings: ShopSettings = {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-const loadJSON = <T,>(key: string, fallback: T): T => {
-  try {
-    const v = localStorage.getItem(key);
-    return v ? JSON.parse(v) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
-  const [bills, setBills] = useState<CompletedBill[]>(() => loadJSON("app_bills", []));
-  const [udhariEntries, setUdhariEntries] = useState<UdhariEntry[]>(() =>
-    loadJSON("app_udhari", [
-      { id: "1", name: "Ramesh Kumar", phone: "9876543210", amount: 2500, totalBilled: 2500, date: "2026-02-20", payments: [] },
-      { id: "2", name: "Suresh Yadav", phone: "9876543211", amount: 1800, totalBilled: 1800, date: "2026-02-18", payments: [] },
-      { id: "3", name: "Priya Sharma", phone: "9876543212", amount: 4450, totalBilled: 4450, date: "2026-02-15", payments: [] },
-    ])
-  );
-  const [paidOffCustomers, setPaidOffCustomers] = useState<PaidOffCustomer[]>(() => loadJSON("app_paidoff", []));
-  const [settings, setSettings] = useState<ShopSettings>(() => loadJSON("app_settings", defaultSettings));
+  const { user } = useAuth();
+  const uid = user?.uid;
 
-  useEffect(() => { localStorage.setItem("app_bills", JSON.stringify(bills)); }, [bills]);
-  useEffect(() => { localStorage.setItem("app_udhari", JSON.stringify(udhariEntries)); }, [udhariEntries]);
-  useEffect(() => { localStorage.setItem("app_paidoff", JSON.stringify(paidOffCustomers)); }, [paidOffCustomers]);
-  useEffect(() => { localStorage.setItem("app_settings", JSON.stringify(settings)); }, [settings]);
+  const [bills, setBills] = useState<CompletedBill[]>([]);
+  const [udhariEntries, setUdhariEntries] = useState<UdhariEntry[]>([]);
+  const [paidOffCustomers, setPaidOffCustomers] = useState<PaidOffCustomer[]>([]);
+  const [settings, setSettings] = useState<ShopSettings>(defaultSettings);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addBill = (bill: CompletedBill) => setBills(prev => [bill, ...prev]);
-  
-  const confirmBillPayment = (billId: string) => {
-    setBills(prev => prev.map(b => b.id === billId ? { ...b, paymentConfirmed: true } : b));
+  // Real-time Firestore listeners
+  useEffect(() => {
+    if (!uid) {
+      setBills([]);
+      setUdhariEntries([]);
+      setPaidOffCustomers([]);
+      setSettings(defaultSettings);
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    let loaded = 0;
+    const total = 5;
+    const checkLoaded = () => { loaded++; if (loaded >= total) setLoading(false); };
+
+    const unsubs = [
+      onSnapshot(collection(db, `users/${uid}/bills`), (snap) => {
+        setBills(snap.docs.map(d => ({ id: d.id, ...d.data() } as CompletedBill)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        checkLoaded();
+      }),
+      onSnapshot(collection(db, `users/${uid}/udhari`), (snap) => {
+        setUdhariEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as UdhariEntry)));
+        checkLoaded();
+      }),
+      onSnapshot(collection(db, `users/${uid}/paidoff`), (snap) => {
+        setPaidOffCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() } as PaidOffCustomer)));
+        checkLoaded();
+      }),
+      onSnapshot(doc(db, `users/${uid}/settings/main`), (snap) => {
+        if (snap.exists()) setSettings(snap.data() as ShopSettings);
+        checkLoaded();
+      }),
+      onSnapshot(collection(db, `users/${uid}/products`), (snap) => {
+        setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+        checkLoaded();
+      }),
+    ];
+
+    return () => unsubs.forEach(u => u());
+  }, [uid]);
+
+  const addBill = async (bill: CompletedBill) => {
+    if (!uid) return;
+    await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill);
   };
 
-  const addUdhari = (entry: UdhariEntry) => {
+  const confirmBillPayment = async (billId: string) => {
+    if (!uid) return;
+    await updateDoc(doc(db, `users/${uid}/bills`, billId), { paymentConfirmed: true });
+  };
+
+  const addUdhari = async (entry: UdhariEntry) => {
+    if (!uid) return;
     const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
-    setUdhariEntries(prev => {
-      const existing = prev.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
-      if (existing) {
-        return prev.map(e =>
-          e.id === existing.id ? { ...e, amount: e.amount + entryWithDefaults.amount, totalBilled: e.totalBilled + entryWithDefaults.amount } : e
-        );
-      }
-      return [entryWithDefaults, ...prev];
-    });
+    // Check if customer already exists
+    const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
+    if (existing) {
+      await updateDoc(doc(db, `users/${uid}/udhari`, existing.id), {
+        amount: existing.amount + entryWithDefaults.amount,
+        totalBilled: existing.totalBilled + entryWithDefaults.amount,
+      });
+    } else {
+      await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults);
+    }
   };
 
-  const payUdhari = (id: string, amount: number, method: string = "cash", note?: string) => {
+  const payUdhari = async (id: string, amount: number, method: string = "cash", note?: string) => {
+    if (!uid) return;
+    const entry = udhariEntries.find(e => e.id === id);
+    if (!entry) return;
+
     const now = new Date();
     const payment: PaymentRecord = {
       id: Date.now().toString(),
@@ -140,34 +208,74 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       method,
       note,
     };
-    setUdhariEntries(prev => {
-      const updated = prev.map(e => e.id === id ? { ...e, amount: e.amount - amount, payments: [...(e.payments || []), payment] } : e);
-      // Move fully paid to paidOff
-      const fullyPaid = updated.find(e => e.id === id && e.amount <= 0);
-      if (fullyPaid) {
-        setPaidOffCustomers(pOff => [{
-          id: fullyPaid.id,
-          name: fullyPaid.name,
-          phone: fullyPaid.phone,
-          totalBilled: fullyPaid.totalBilled,
-          totalPaid: (fullyPaid.payments || []).reduce((s, p) => s + p.amount, 0),
-          clearedDate: now.toISOString().split("T")[0],
-          payments: fullyPaid.payments || [],
-          billNos: fullyPaid.billNo ? [fullyPaid.billNo] : [],
-        }, ...pOff]);
-        return updated.filter(e => e.amount > 0);
-      }
-      return updated;
-    });
+
+    const newAmount = entry.amount - amount;
+    const newPayments = [...(entry.payments || []), payment];
+
+    if (newAmount <= 0) {
+      // Move to paid off
+      const paidOff: PaidOffCustomer = {
+        id: entry.id,
+        name: entry.name,
+        phone: entry.phone,
+        totalBilled: entry.totalBilled,
+        totalPaid: newPayments.reduce((s, p) => s + p.amount, 0),
+        clearedDate: now.toISOString().split("T")[0],
+        payments: newPayments,
+        billNos: entry.billNo ? [entry.billNo] : [],
+      };
+      const batch = writeBatch(db);
+      batch.delete(doc(db, `users/${uid}/udhari`, id));
+      batch.set(doc(db, `users/${uid}/paidoff`, paidOff.id), paidOff);
+      await batch.commit();
+    } else {
+      await updateDoc(doc(db, `users/${uid}/udhari`, id), {
+        amount: newAmount,
+        payments: newPayments,
+      });
+    }
   };
 
-  const deleteUdhari = (id: string) => setUdhariEntries(prev => prev.filter(e => e.id !== id));
-  const deletePaidOff = (id: string) => setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
+  const deleteUdhari = async (id: string) => {
+    if (!uid) return;
+    await deleteDoc(doc(db, `users/${uid}/udhari`, id));
+  };
 
-  const updateSettings = (s: Partial<ShopSettings>) => setSettings(prev => ({ ...prev, ...s }));
+  const deletePaidOff = async (id: string) => {
+    if (!uid) return;
+    await deleteDoc(doc(db, `users/${uid}/paidoff`, id));
+  };
+
+  const updateSettings = async (s: Partial<ShopSettings>) => {
+    if (!uid) return;
+    const updated = { ...settings, ...s };
+    setSettings(updated);
+    await setDoc(doc(db, `users/${uid}/settings/main`), updated);
+  };
+
+  const addProduct = async (product: Product) => {
+    if (!uid) return;
+    await setDoc(doc(db, `users/${uid}/products`, product.id), product);
+  };
+
+  const updateProduct = async (product: Product) => {
+    if (!uid) return;
+    await setDoc(doc(db, `users/${uid}/products`, product.id), product);
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!uid) return;
+    await deleteDoc(doc(db, `users/${uid}/products`, id));
+  };
 
   return (
-    <StoreContext.Provider value={{ bills, addBill, confirmBillPayment, udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, settings, updateSettings }}>
+    <StoreContext.Provider value={{
+      bills, addBill, confirmBillPayment,
+      udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff,
+      settings, updateSettings,
+      products, addProduct, updateProduct, deleteProduct,
+      loading,
+    }}>
       {children}
     </StoreContext.Provider>
   );

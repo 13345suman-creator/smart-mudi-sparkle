@@ -1,17 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
-
-const productCatalog = [
-  { id: "1", name: "Aashirvaad Atta", price: 320, unit: "kg", barcode: "8901234567891" },
-  { id: "3", name: "Fortune Oil", price: 165, unit: "liter", barcode: "8901234567892" },
-  { id: "7", name: "Milk Packet", price: 28, unit: "pcs", barcode: "8901234567895" },
-  { id: "6", name: "Rice Basmati", price: 85, unit: "kg", barcode: "8901234567896" },
-  { id: "4", name: "Sugar", price: 45, unit: "kg", barcode: "8901234567893" },
-  { id: "5", name: "Tata Tea", price: 120, unit: "pcs", barcode: "8901234567894" },
-  { id: "1s", name: "Tata Salt", price: 22, unit: "kg", barcode: "8901234567890" },
-].sort((a, b) => a.name.localeCompare(b.name));
 
 const quantityPresets = [
   { label: "100g", value: 0.1 },
@@ -103,7 +93,19 @@ th{padding:3px 2px;font-size:9px;text-transform:uppercase;border-bottom:1px soli
 };
 
 const Billing = () => {
-  const { bills, addBill, confirmBillPayment, addUdhari, settings } = useStore();
+  const { bills, addBill, confirmBillPayment, addUdhari, settings, products: storeProducts } = useStore();
+
+  // Build product catalog from Firestore products
+  const productCatalog = useMemo(() =>
+    storeProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.sellPrice,
+      unit: p.unit,
+      barcode: p.barcode,
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+    [storeProducts]
+  );
   const [items, setItems] = useState<BillItem[]>([]);
   const [search, setSearch] = useState("");
   const [billSearch, setBillSearch] = useState("");
