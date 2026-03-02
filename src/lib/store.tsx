@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth } from "./auth";
 import { db } from "./firebase";
 import {
@@ -8,8 +8,8 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
-  getDoc,
   writeBatch,
+  getDocs,
 } from "firebase/firestore";
 
 export interface BillItem {
@@ -112,89 +112,145 @@ const defaultSettings: ShopSettings = {
   upiIds: ["", "", ""],
 };
 
+const LS_KEYS = {
+  bills: "smk_bills",
+  udhari: "smk_udhari",
+  paidoff: "smk_paidoff",
+  settings: "smk_settings",
+  products: "smk_products",
+};
+
+function loadLocal<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+
+function saveLocal<T>(key: string, data: T) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+}
+
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const uid = user?.uid;
 
-  const [bills, setBills] = useState<CompletedBill[]>([]);
-  const [udhariEntries, setUdhariEntries] = useState<UdhariEntry[]>([]);
-  const [paidOffCustomers, setPaidOffCustomers] = useState<PaidOffCustomer[]>([]);
-  const [settings, setSettings] = useState<ShopSettings>(defaultSettings);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bills, setBills] = useState<CompletedBill[]>(() => loadLocal(LS_KEYS.bills, []));
+  const [udhariEntries, setUdhariEntries] = useState<UdhariEntry[]>(() => loadLocal(LS_KEYS.udhari, []));
+  const [paidOffCustomers, setPaidOffCustomers] = useState<PaidOffCustomer[]>(() => loadLocal(LS_KEYS.paidoff, []));
+  const [settings, setSettings] = useState<ShopSettings>(() => loadLocal(LS_KEYS.settings, defaultSettings));
+  const [products, setProducts] = useState<Product[]>(() => loadLocal(LS_KEYS.products, []));
+  const [loading, setLoading] = useState(false);
+  const [synced, setSynced] = useState(false);
 
-  // Real-time Firestore listeners
+  // Save to localStorage whenever data changes
+  useEffect(() => { saveLocal(LS_KEYS.bills, bills); }, [bills]);
+  useEffect(() => { saveLocal(LS_KEYS.udhari, udhariEntries); }, [udhariEntries]);
+  useEffect(() => { saveLocal(LS_KEYS.paidoff, paidOffCustomers); }, [paidOffCustomers]);
+  useEffect(() => { saveLocal(LS_KEYS.settings, settings); }, [settings]);
+  useEffect(() => { saveLocal(LS_KEYS.products, products); }, [products]);
+
+  // Sync local data to Firestore when user logs in
+  const syncLocalToFirestore = useCallback(async (userId: string) => {
+    try {
+      const localBills = loadLocal<CompletedBill[]>(LS_KEYS.bills, []);
+      const localUdhari = loadLocal<UdhariEntry[]>(LS_KEYS.udhari, []);
+      const localPaidoff = loadLocal<PaidOffCustomer[]>(LS_KEYS.paidoff, []);
+      const localSettings = loadLocal<ShopSettings>(LS_KEYS.settings, defaultSettings);
+      const localProducts = loadLocal<Product[]>(LS_KEYS.products, []);
+
+      // Check if Firestore already has data
+      const billsSnap = await getDocs(collection(db, `users/${userId}/bills`));
+      const hasFirestoreData = !billsSnap.empty;
+
+      // If no Firestore data but local data exists, push local to Firestore
+      if (!hasFirestoreData && localBills.length > 0) {
+        const batch = writeBatch(db);
+        localBills.forEach(b => batch.set(doc(db, `users/${userId}/bills`, b.id), b));
+        localUdhari.forEach(u => batch.set(doc(db, `users/${userId}/udhari`, u.id), u));
+        localPaidoff.forEach(p => batch.set(doc(db, `users/${userId}/paidoff`, p.id), p));
+        localProducts.forEach(p => batch.set(doc(db, `users/${userId}/products`, p.id), p));
+        batch.set(doc(db, `users/${userId}/settings/main`), localSettings);
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn("Sync to Firestore failed, will retry on next login:", err);
+    }
+  }, []);
+
+  // Firestore real-time listeners when logged in
   useEffect(() => {
     if (!uid) {
-      setBills([]);
-      setUdhariEntries([]);
-      setPaidOffCustomers([]);
-      setSettings(defaultSettings);
-      setProducts([]);
+      setSynced(false);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    let loaded = 0;
-    const total = 5;
-    const checkLoaded = () => { loaded++; if (loaded >= total) setLoading(false); };
 
-    const unsubs = [
-      onSnapshot(collection(db, `users/${uid}/bills`), (snap) => {
-        setBills(snap.docs.map(d => ({ id: d.id, ...d.data() } as CompletedBill)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        checkLoaded();
-      }),
-      onSnapshot(collection(db, `users/${uid}/udhari`), (snap) => {
-        setUdhariEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as UdhariEntry)));
-        checkLoaded();
-      }),
-      onSnapshot(collection(db, `users/${uid}/paidoff`), (snap) => {
-        setPaidOffCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() } as PaidOffCustomer)));
-        checkLoaded();
-      }),
-      onSnapshot(doc(db, `users/${uid}/settings/main`), (snap) => {
-        if (snap.exists()) setSettings(snap.data() as ShopSettings);
-        checkLoaded();
-      }),
-      onSnapshot(collection(db, `users/${uid}/products`), (snap) => {
-        setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
-        checkLoaded();
-      }),
-    ];
+    // First sync local → Firestore, then listen
+    syncLocalToFirestore(uid).then(() => {
+      let loaded = 0;
+      const total = 5;
+      const checkLoaded = () => { loaded++; if (loaded >= total) { setLoading(false); setSynced(true); } };
 
-    return () => unsubs.forEach(u => u());
-  }, [uid]);
+      const unsubs = [
+        onSnapshot(collection(db, `users/${uid}/bills`), (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CompletedBill)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setBills(data);
+          checkLoaded();
+        }),
+        onSnapshot(collection(db, `users/${uid}/udhari`), (snap) => {
+          setUdhariEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as UdhariEntry)));
+          checkLoaded();
+        }),
+        onSnapshot(collection(db, `users/${uid}/paidoff`), (snap) => {
+          setPaidOffCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() } as PaidOffCustomer)));
+          checkLoaded();
+        }),
+        onSnapshot(doc(db, `users/${uid}/settings/main`), (snap) => {
+          if (snap.exists()) setSettings(snap.data() as ShopSettings);
+          checkLoaded();
+        }),
+        onSnapshot(collection(db, `users/${uid}/products`), (snap) => {
+          setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+          checkLoaded();
+        }),
+      ];
+
+      return () => unsubs.forEach(u => u());
+    });
+  }, [uid, syncLocalToFirestore]);
+
+  // Helper: write to Firestore if online, always update local
+  const isOnline = !!uid;
 
   const addBill = async (bill: CompletedBill) => {
-    if (!uid) return;
-    await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill);
+    setBills(prev => [bill, ...prev]);
+    if (isOnline) await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill);
   };
 
   const confirmBillPayment = async (billId: string) => {
-    if (!uid) return;
-    await updateDoc(doc(db, `users/${uid}/bills`, billId), { paymentConfirmed: true });
+    setBills(prev => prev.map(b => b.id === billId ? { ...b, paymentConfirmed: true } : b));
+    if (isOnline) await updateDoc(doc(db, `users/${uid}/bills`, billId), { paymentConfirmed: true });
   };
 
   const addUdhari = async (entry: UdhariEntry) => {
-    if (!uid) return;
     const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
-    // Check if customer already exists
     const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
     if (existing) {
-      await updateDoc(doc(db, `users/${uid}/udhari`, existing.id), {
-        amount: existing.amount + entryWithDefaults.amount,
-        totalBilled: existing.totalBilled + entryWithDefaults.amount,
-      });
+      const updated = { ...existing, amount: existing.amount + entryWithDefaults.amount, totalBilled: existing.totalBilled + entryWithDefaults.amount };
+      setUdhariEntries(prev => prev.map(e => e.id === existing.id ? updated : e));
+      if (isOnline) await updateDoc(doc(db, `users/${uid}/udhari`, existing.id), { amount: updated.amount, totalBilled: updated.totalBilled });
     } else {
-      await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults);
+      setUdhariEntries(prev => [...prev, entryWithDefaults]);
+      if (isOnline) await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults);
     }
   };
 
   const payUdhari = async (id: string, amount: number, method: string = "cash", note?: string) => {
-    if (!uid) return;
     const entry = udhariEntries.find(e => e.id === id);
     if (!entry) return;
 
@@ -213,7 +269,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const newPayments = [...(entry.payments || []), payment];
 
     if (newAmount <= 0) {
-      // Move to paid off
       const paidOff: PaidOffCustomer = {
         id: entry.id,
         name: entry.name,
@@ -224,48 +279,49 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         payments: newPayments,
         billNos: entry.billNo ? [entry.billNo] : [],
       };
-      const batch = writeBatch(db);
-      batch.delete(doc(db, `users/${uid}/udhari`, id));
-      batch.set(doc(db, `users/${uid}/paidoff`, paidOff.id), paidOff);
-      await batch.commit();
+      setUdhariEntries(prev => prev.filter(e => e.id !== id));
+      setPaidOffCustomers(prev => [...prev, paidOff]);
+      if (isOnline) {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, `users/${uid}/udhari`, id));
+        batch.set(doc(db, `users/${uid}/paidoff`, paidOff.id), paidOff);
+        await batch.commit();
+      }
     } else {
-      await updateDoc(doc(db, `users/${uid}/udhari`, id), {
-        amount: newAmount,
-        payments: newPayments,
-      });
+      setUdhariEntries(prev => prev.map(e => e.id === id ? { ...e, amount: newAmount, payments: newPayments } : e));
+      if (isOnline) await updateDoc(doc(db, `users/${uid}/udhari`, id), { amount: newAmount, payments: newPayments });
     }
   };
 
   const deleteUdhari = async (id: string) => {
-    if (!uid) return;
-    await deleteDoc(doc(db, `users/${uid}/udhari`, id));
+    setUdhariEntries(prev => prev.filter(e => e.id !== id));
+    if (isOnline) await deleteDoc(doc(db, `users/${uid}/udhari`, id));
   };
 
   const deletePaidOff = async (id: string) => {
-    if (!uid) return;
-    await deleteDoc(doc(db, `users/${uid}/paidoff`, id));
+    setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
+    if (isOnline) await deleteDoc(doc(db, `users/${uid}/paidoff`, id));
   };
 
   const updateSettings = async (s: Partial<ShopSettings>) => {
-    if (!uid) return;
     const updated = { ...settings, ...s };
     setSettings(updated);
-    await setDoc(doc(db, `users/${uid}/settings/main`), updated);
+    if (isOnline) await setDoc(doc(db, `users/${uid}/settings/main`), updated);
   };
 
   const addProduct = async (product: Product) => {
-    if (!uid) return;
-    await setDoc(doc(db, `users/${uid}/products`, product.id), product);
+    setProducts(prev => [...prev, product]);
+    if (isOnline) await setDoc(doc(db, `users/${uid}/products`, product.id), product);
   };
 
   const updateProduct = async (product: Product) => {
-    if (!uid) return;
-    await setDoc(doc(db, `users/${uid}/products`, product.id), product);
+    setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+    if (isOnline) await setDoc(doc(db, `users/${uid}/products`, product.id), product);
   };
 
   const deleteProduct = async (id: string) => {
-    if (!uid) return;
-    await deleteDoc(doc(db, `users/${uid}/products`, id));
+    setProducts(prev => prev.filter(p => p.id !== id));
+    if (isOnline) await deleteDoc(doc(db, `users/${uid}/products`, id));
   };
 
   return (
