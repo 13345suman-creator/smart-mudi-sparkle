@@ -68,7 +68,10 @@ const Stock = () => {
   };
 
   const uploadImageToStorage = async (productId: string, blob: Blob): Promise<string> => {
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      // Not logged in - store as data URL locally
+      return blobToDataURL(blob);
+    }
     const storageRef = ref(storage, `users/${user.uid}/products/${productId}.jpg`);
     await uploadBytes(storageRef, blob);
     return getDownloadURL(storageRef);
