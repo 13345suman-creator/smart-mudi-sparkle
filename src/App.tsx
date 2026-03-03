@@ -15,6 +15,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Apply saved theme on load
+const savedTheme = localStorage.getItem("smk_theme") || "midnight-ocean";
+document.documentElement.setAttribute("data-theme", savedTheme);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

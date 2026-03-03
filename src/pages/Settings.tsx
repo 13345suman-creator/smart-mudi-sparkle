@@ -1,8 +1,24 @@
-import { useState, useEffect } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Moon, Sun, Download, Upload, Trash2, CheckCircle, Lock, Fingerprint, BellRing, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, Fingerprint, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+
+interface ThemeOption {
+  id: string;
+  name: string;
+  nameHi: string;
+  colors: string[];
+  gradient: string;
+}
+
+const THEMES: ThemeOption[] = [
+  { id: "midnight-ocean", name: "Midnight Ocean", nameHi: "মিডনাইট ওশান", colors: ["#00d4aa", "#3b82f6", "#1a1a2e"], gradient: "linear-gradient(135deg, #00d4aa, #3b82f6)" },
+  { id: "neon-cyber", name: "Neon Cyber", nameHi: "নিওন সাইবার", colors: ["#ec4899", "#06b6d4", "#1a0a2e"], gradient: "linear-gradient(135deg, #ec4899, #06b6d4)" },
+  { id: "royal-gold", name: "Royal Gold", nameHi: "রয়্যাল গোল্ড", colors: ["#eab308", "#ef6c00", "#1a1508"], gradient: "linear-gradient(135deg, #eab308, #ef6c00)" },
+  { id: "forest-emerald", name: "Forest Emerald", nameHi: "ফরেস্ট এমেরাল্ড", colors: ["#22c55e", "#84cc16", "#0a1a10"], gradient: "linear-gradient(135deg, #22c55e, #84cc16)" },
+  { id: "sunset-blaze", name: "Sunset Blaze", nameHi: "সানসেট ব্লেজ", colors: ["#f97316", "#ec4899", "#1a0c08"], gradient: "linear-gradient(135deg, #f97316, #ec4899)" },
+];
 
 const Settings = () => {
   const { settings, updateSettings } = useStore();
@@ -14,16 +30,27 @@ const Settings = () => {
   const [upiIds, setUpiIds] = useState<string[]>([...settings.upiIds]);
 
   // Appearance
-  const [theme, setTheme] = useState(() => localStorage.getItem("smk_theme") || "dark");
+  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem("smk_theme") || "midnight-ocean");
 
   // Notifications
   const [billNotif, setBillNotif] = useState(() => localStorage.getItem("smk_notif_bill") !== "false");
   const [lowStockNotif, setLowStockNotif] = useState(() => localStorage.getItem("smk_notif_lowstock") !== "false");
   const [udhariNotif, setUdhariNotif] = useState(() => localStorage.getItem("smk_notif_udhari") !== "false");
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("smk_sound") !== "false");
 
   // Security
   const [appLock, setAppLock] = useState(() => localStorage.getItem("smk_applock") === "true");
   const [lockPin, setLockPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [autoLockMin, setAutoLockMin] = useState(() => parseInt(localStorage.getItem("smk_autolock_min") || "5"));
+
+  // Advanced
+  const [lowStockThreshold, setLowStockThreshold] = useState(() => parseInt(localStorage.getItem("smk_lowstock_threshold") || "10"));
+  const [currency, setCurrency] = useState(() => localStorage.getItem("smk_currency") || "₹");
+  const [autoBackup, setAutoBackup] = useState(() => localStorage.getItem("smk_autobackup") === "true");
+  const [language, setLanguage] = useState(() => localStorage.getItem("smk_language") || "bn");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setShopName(settings.shopName);
@@ -31,6 +58,11 @@ const Settings = () => {
     setShopGST(settings.shopGST);
     setUpiIds([...settings.upiIds]);
   }, [settings]);
+
+  // Apply theme on mount
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", currentTheme);
+  }, []);
 
   const saveShopDetails = () => {
     updateSettings({ shopName, shopAddress, shopGST });
@@ -44,29 +76,47 @@ const Settings = () => {
     toast.success("UPI IDs saved!");
   };
 
-  const saveTheme = (t: string) => {
-    setTheme(t);
-    localStorage.setItem("smk_theme", t);
-    document.documentElement.classList.toggle("dark", t === "dark");
-    document.documentElement.classList.toggle("light", t === "light");
-    toast.success(`Theme changed to ${t}`);
+  const applyTheme = (themeId: string) => {
+    setCurrentTheme(themeId);
+    localStorage.setItem("smk_theme", themeId);
+    document.documentElement.setAttribute("data-theme", themeId);
+    toast.success(`Theme changed to ${THEMES.find(t => t.id === themeId)?.name}`);
   };
 
   const saveNotifications = () => {
     localStorage.setItem("smk_notif_bill", String(billNotif));
     localStorage.setItem("smk_notif_lowstock", String(lowStockNotif));
     localStorage.setItem("smk_notif_udhari", String(udhariNotif));
+    localStorage.setItem("smk_sound", String(soundEnabled));
+
+    // Request browser notification permission
+    if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(p => {
+        if (p === "granted") toast.success("Browser notifications enabled!");
+      });
+    }
+
     setActiveModal(null);
     toast.success("Notification settings saved!");
   };
 
   const saveSecurity = () => {
     localStorage.setItem("smk_applock", String(appLock));
+    localStorage.setItem("smk_autolock_min", String(autoLockMin));
     if (appLock && lockPin.length === 4) {
       localStorage.setItem("smk_lockpin", lockPin);
     }
     setActiveModal(null);
     toast.success("Security settings saved!");
+  };
+
+  const saveAdvanced = () => {
+    localStorage.setItem("smk_lowstock_threshold", String(lowStockThreshold));
+    localStorage.setItem("smk_currency", currency);
+    localStorage.setItem("smk_autobackup", String(autoBackup));
+    localStorage.setItem("smk_language", language);
+    setActiveModal(null);
+    toast.success("Advanced settings saved!");
   };
 
   const exportData = () => {
@@ -77,6 +127,7 @@ const Settings = () => {
       settings: localStorage.getItem("smk_settings"),
       products: localStorage.getItem("smk_products"),
       exportDate: new Date().toISOString(),
+      version: "1.0",
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -119,30 +170,50 @@ const Settings = () => {
     }
   };
 
+  const getStorageUsage = () => {
+    let total = 0;
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("smk_")) {
+        total += (localStorage.getItem(key)?.length || 0) * 2;
+      }
+    });
+    return (total / 1024).toFixed(1);
+  };
+
+  const ToggleSwitch = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
+    <button onClick={() => onChange(!value)} className={`w-12 h-6 rounded-full transition-all duration-300 ${value ? 'gradient-primary' : 'bg-muted'}`}>
+      <div className={`w-5 h-5 rounded-full bg-white shadow-lg transition-transform duration-300 ${value ? 'translate-x-6' : 'translate-x-0.5'}`} />
+    </button>
+  );
+
   const settingsItems = [
     { icon: Store, label: "Shop Details", desc: "Name, address, GST", action: () => setActiveModal("shop") },
     { icon: Smartphone, label: "UPI Settings", desc: `${settings.upiIds.filter(u => u).length} UPI IDs configured`, action: () => setActiveModal("upi") },
-    { icon: Shield, label: "Security", desc: appLock ? "App lock enabled" : "App lock disabled", action: () => setActiveModal("security") },
-    { icon: Bell, label: "Notifications", desc: "Alerts & reminders", action: () => setActiveModal("notifications") },
-    { icon: Palette, label: "Appearance", desc: `${theme === "dark" ? "Dark" : "Light"} theme`, action: () => setActiveModal("appearance") },
-    { icon: Database, label: "Backup & Data", desc: user ? "Cloud synced" : "Local storage", action: () => setActiveModal("backup") },
+    { icon: Shield, label: "Security", desc: appLock ? "App lock enabled" : "Configure PIN lock", action: () => setActiveModal("security") },
+    { icon: Bell, label: "Notifications", desc: "Alerts & sound settings", action: () => setActiveModal("notifications") },
+    { icon: Palette, label: "Appearance", desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
+    { icon: Database, label: "Backup & Data", desc: `${getStorageUsage()} KB used`, action: () => setActiveModal("backup") },
+    { icon: Zap, label: "Advanced", desc: "Threshold, currency & more", action: () => setActiveModal("advanced") },
   ];
 
   const renderModal = () => {
     if (!activeModal) return null;
 
+    const titles: Record<string, string> = {
+      shop: "Shop Details",
+      upi: "UPI Settings",
+      security: "Security",
+      notifications: "Notifications",
+      appearance: "Appearance",
+      backup: "Backup & Data",
+      advanced: "Advanced Settings",
+    };
+
     return (
       <div className="modal-overlay" onClick={() => setActiveModal(null)}>
         <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-bold text-lg text-foreground">
-              {activeModal === "shop" && "Shop Details"}
-              {activeModal === "upi" && "UPI Settings"}
-              {activeModal === "security" && "Security"}
-              {activeModal === "notifications" && "Notifications"}
-              {activeModal === "appearance" && "Appearance"}
-              {activeModal === "backup" && "Backup & Data"}
-            </h3>
+            <h3 className="font-display font-bold text-lg text-foreground">{titles[activeModal]}</h3>
             <button onClick={() => setActiveModal(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
           </div>
 
@@ -192,15 +263,30 @@ const Settings = () => {
                     <p className="text-[10px] text-muted-foreground">Require PIN to open app</p>
                   </div>
                 </div>
-                <button onClick={() => setAppLock(!appLock)} className={`w-12 h-6 rounded-full transition-all ${appLock ? 'bg-primary' : 'bg-muted'}`}>
-                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${appLock ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                </button>
+                <ToggleSwitch value={appLock} onChange={setAppLock} />
               </div>
               {appLock && (
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Set 4-digit PIN</label>
-                  <input type="password" maxLength={4} value={lockPin} onChange={e => setLockPin(e.target.value.replace(/\D/g, ""))} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg text-center tracking-[1em] font-mono" placeholder="• • • •" />
-                </div>
+                <>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Set 4-digit PIN</label>
+                    <div className="relative">
+                      <input type={showPin ? "text" : "password"} maxLength={4} value={lockPin} onChange={e => setLockPin(e.target.value.replace(/\D/g, ""))} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg text-center tracking-[1em] font-mono pr-10" placeholder="• • • •" />
+                      <button onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Auto-lock after (minutes)</label>
+                    <div className="flex items-center gap-2">
+                      {[1, 5, 15, 30].map(m => (
+                        <button key={m} onClick={() => setAutoLockMin(m)} className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${autoLockMin === m ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                          {m} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
               <div className="flex items-center justify-between glass-card p-4 rounded-xl opacity-50">
                 <div className="flex items-center gap-3">
@@ -224,6 +310,7 @@ const Settings = () => {
                 { label: "Bill Notifications", desc: "Alert on new bill", value: billNotif, set: setBillNotif, icon: BellRing },
                 { label: "Low Stock Alerts", desc: "Notify when stock is low", value: lowStockNotif, set: setLowStockNotif, icon: AlertTriangle },
                 { label: "Udhari Reminders", desc: "Payment due reminders", value: udhariNotif, set: setUdhariNotif, icon: Bell },
+                { label: "Sound Effects", desc: "Play sounds on actions", value: soundEnabled, set: setSoundEnabled, icon: soundEnabled ? Volume2 : VolumeX },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between glass-card p-4 rounded-xl">
                   <div className="flex items-center gap-3">
@@ -233,9 +320,7 @@ const Settings = () => {
                       <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                     </div>
                   </div>
-                  <button onClick={() => item.set(!item.value)} className={`w-12 h-6 rounded-full transition-all ${item.value ? 'bg-primary' : 'bg-muted'}`}>
-                    <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${item.value ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                  </button>
+                  <ToggleSwitch value={item.value} onChange={item.set} />
                 </div>
               ))}
               <button onClick={saveNotifications} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
@@ -244,21 +329,52 @@ const Settings = () => {
             </div>
           )}
 
-          {/* Appearance */}
+          {/* Appearance - 5 Themes */}
           {activeModal === "appearance" && (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Choose your preferred theme</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => saveTheme("dark")} className={`glass-card p-4 rounded-xl flex flex-col items-center gap-3 transition-all ${theme === "dark" ? "ring-2 ring-primary" : ""}`}>
-                  <Moon size={24} className="text-primary" />
-                  <span className="text-sm font-semibold text-foreground">Dark</span>
-                  {theme === "dark" && <CheckCircle size={14} className="text-primary" />}
-                </button>
-                <button onClick={() => saveTheme("light")} className={`glass-card p-4 rounded-xl flex flex-col items-center gap-3 transition-all ${theme === "light" ? "ring-2 ring-primary" : ""}`}>
-                  <Sun size={24} className="text-warning" />
-                  <span className="text-sm font-semibold text-foreground">Light</span>
-                  {theme === "light" && <CheckCircle size={14} className="text-primary" />}
-                </button>
+              <p className="text-xs text-muted-foreground">Choose your premium 3D theme</p>
+              <div className="space-y-3">
+                {THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => applyTheme(theme.id)}
+                    className={`theme-card w-full text-left ${currentTheme === theme.id ? "active" : ""}`}
+                  >
+                    <div className="theme-card-inner">
+                      <div className="relative h-20 rounded-xl overflow-hidden" style={{ background: theme.gradient }}>
+                        {/* Animated shimmer overlay */}
+                        <div className="absolute inset-0 animate-shimmer" style={{
+                          background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)`,
+                          backgroundSize: "200% 100%",
+                        }} />
+                        {/* 3D floating orbs */}
+                        <div className="absolute w-10 h-10 rounded-full float-animation opacity-30" style={{ background: theme.colors[0], top: "10%", left: "10%", animationDelay: "0s" }} />
+                        <div className="absolute w-6 h-6 rounded-full float-animation opacity-40" style={{ background: theme.colors[1], top: "30%", right: "15%", animationDelay: "1s" }} />
+                        <div className="absolute w-8 h-8 rounded-full float-animation opacity-20" style={{ background: theme.colors[0], bottom: "10%", right: "30%", animationDelay: "2s" }} />
+
+                        {/* Content */}
+                        <div className="absolute inset-0 flex items-center justify-between px-4">
+                          <div>
+                            <p className="text-white font-bold text-sm drop-shadow-lg">{theme.name}</p>
+                            <p className="text-white/70 text-[10px]">{theme.nameHi}</p>
+                          </div>
+                          {currentTheme === theme.id && (
+                            <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                              <CheckCircle size={16} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 3D color preview dots */}
+                        <div className="absolute bottom-2 left-4 flex gap-1.5">
+                          {theme.colors.map((c, i) => (
+                            <div key={i} className="w-3 h-3 rounded-full border border-white/30 shadow-lg" style={{ background: c }} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -267,28 +383,35 @@ const Settings = () => {
           {activeModal === "backup" && (
             <div className="space-y-3">
               <div className="glass-card p-4 rounded-xl">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`w-2 h-2 rounded-full ${user ? 'bg-success' : 'bg-warning'}`} />
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-2 h-2 rounded-full ${user ? 'bg-[hsl(var(--success))]' : 'bg-[hsl(var(--warning))]'}`} />
                   <p className="text-sm font-medium text-foreground">{user ? "Cloud Synced" : "Local Only"}</p>
                 </div>
                 <p className="text-[10px] text-muted-foreground">{user ? `Syncing to cloud as ${user.email}` : "Login to enable cloud sync"}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <HardDrive size={14} className="text-muted-foreground" />
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full gradient-primary rounded-full transition-all" style={{ width: `${Math.min(parseFloat(getStorageUsage()) / 50 * 100, 100)}%` }} />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{getStorageUsage()} KB</span>
+                </div>
               </div>
 
               <button onClick={exportData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left">
                 <Download size={18} className="text-primary" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Export Backup</p>
-                  <p className="text-[10px] text-muted-foreground">Download all data as JSON file</p>
+                  <p className="text-[10px] text-muted-foreground">Download all data as JSON</p>
                 </div>
               </button>
 
               <label className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors cursor-pointer">
-                <Upload size={18} className="text-success" />
+                <Upload size={18} className="text-[hsl(var(--success))]" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Import Backup</p>
-                  <p className="text-[10px] text-muted-foreground">Restore from JSON backup file</p>
+                  <p className="text-[10px] text-muted-foreground">Restore from JSON file</p>
                 </div>
-                <input type="file" accept=".json" className="hidden" onChange={importData} />
+                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
               </label>
 
               <button onClick={clearAllData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-destructive/10 transition-colors text-left">
@@ -297,6 +420,59 @@ const Settings = () => {
                   <p className="text-sm font-medium text-destructive">Clear All Data</p>
                   <p className="text-[10px] text-muted-foreground">Permanently delete everything</p>
                 </div>
+              </button>
+            </div>
+          )}
+
+          {/* Advanced */}
+          {activeModal === "advanced" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Low Stock Alert Threshold</label>
+                <div className="flex items-center gap-2">
+                  {[5, 10, 20, 50].map(v => (
+                    <button key={v} onClick={() => setLowStockThreshold(v)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${lowStockThreshold === v ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                      {v} items
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Currency Symbol</label>
+                <div className="flex items-center gap-2">
+                  {["₹", "$", "€", "£"].map(c => (
+                    <button key={c} onClick={() => setCurrency(c)} className={`flex-1 py-2.5 rounded-lg text-lg font-bold transition-all ${currency === c ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Language</label>
+                <div className="flex items-center gap-2">
+                  {[{ id: "bn", label: "বাংলা" }, { id: "hi", label: "हिंदी" }, { id: "en", label: "English" }].map(l => (
+                    <button key={l.id} onClick={() => setLanguage(l.id)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${language === l.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between glass-card p-4 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <RefreshCw size={18} className="text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Auto Backup</p>
+                    <p className="text-[10px] text-muted-foreground">Backup data on every change</p>
+                  </div>
+                </div>
+                <ToggleSwitch value={autoBackup} onChange={setAutoBackup} />
+              </div>
+
+              <button onClick={saveAdvanced} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+                <Save size={14} /> Save Advanced
               </button>
             </div>
           )}
@@ -319,8 +495,8 @@ const Settings = () => {
               className="glass-card-hover p-4 flex items-center justify-between w-full text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Icon size={18} className="text-primary" />
+                <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+                  <Icon size={18} className="text-primary-foreground" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{item.label}</p>
