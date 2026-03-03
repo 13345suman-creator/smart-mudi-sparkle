@@ -20,8 +20,92 @@ const THEMES: ThemeOption[] = [
   { id: "sunset-blaze", name: "Sunset Blaze", nameHi: "সানসেট ব্লেজ", colors: ["#f97316", "#ec4899", "#1a0c08"], gradient: "linear-gradient(135deg, #f97316, #ec4899)" },
 ];
 
+// WebAuthn Fingerprint helpers
+const isWebAuthnSupported = () => {
+  return window.PublicKeyCredential !== undefined && navigator.credentials !== undefined;
+};
+
+const registerFingerprint = async (): Promise<boolean> => {
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if (!available) {
+      toast.error("আপনার ডিভাইসে Fingerprint/Biometric সাপোর্ট নেই");
+      return false;
+    }
+
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+
+    const userId = new Uint8Array(16);
+    crypto.getRandomValues(userId);
+
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: "Smart Mudi Khana", id: window.location.hostname },
+        user: {
+          id: userId,
+          name: "shopowner",
+          displayName: "Shop Owner",
+        },
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },
+          { type: "public-key", alg: -257 },
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+        },
+        timeout: 60000,
+      },
+    });
+
+    if (credential) {
+      // Store credential ID for future verification
+      const credId = btoa(String.fromCharCode(...new Uint8Array((credential as PublicKeyCredential).rawId)));
+      localStorage.setItem("smk_fingerprint_cred", credId);
+      return true;
+    }
+    return false;
+  } catch (err: any) {
+    console.error("Fingerprint registration error:", err);
+    if (err.name === "NotAllowedError") {
+      toast.error("Fingerprint রেজিস্ট্রেশন বাতিল করা হয়েছে");
+    } else {
+      toast.error("Fingerprint সেটআপ ব্যর্থ হয়েছে");
+    }
+    return false;
+  }
+};
+
+const verifyFingerprint = async (): Promise<boolean> => {
+  try {
+    const credIdStr = localStorage.getItem("smk_fingerprint_cred");
+    if (!credIdStr) return false;
+
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+
+    const credId = Uint8Array.from(atob(credIdStr), c => c.charCodeAt(0));
+
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ type: "public-key", id: credId, transports: ["internal"] }],
+        userVerification: "required",
+        timeout: 60000,
+      },
+    });
+
+    return !!assertion;
+  } catch (err) {
+    console.error("Fingerprint verify error:", err);
+    return false;
+  }
+};
+
 const Settings = () => {
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings, bills, products, udhariEntries } = useStore();
   const { user } = useAuth();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [shopName, setShopName] = useState(settings.shopName);
@@ -43,6 +127,8 @@ const Settings = () => {
   const [lockPin, setLockPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [autoLockMin, setAutoLockMin] = useState(() => parseInt(localStorage.getItem("smk_autolock_min") || "5"));
+  const [fingerprintEnabled, setFingerprintEnabled] = useState(() => localStorage.getItem("smk_fingerprint") === "true");
+  const [fingerprintSupported, setFingerprintSupported] = useState(false);
 
   // Advanced
   const [lowStockThreshold, setLowStockThreshold] = useState(() => parseInt(localStorage.getItem("smk_lowstock_threshold") || "10"));
@@ -59,10 +145,42 @@ const Settings = () => {
     setUpiIds([...settings.upiIds]);
   }, [settings]);
 
+  // Check fingerprint support
+  useEffect(() => {
+    if (isWebAuthnSupported()) {
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available => {
+        setFingerprintSupported(available);
+      });
+    }
+  }, []);
+
   // Apply theme on mount
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", currentTheme);
   }, []);
+
+  // Auto backup on data change
+  useEffect(() => {
+    if (autoBackup && (bills.length > 0 || products.length > 0)) {
+      const lastBackup = localStorage.getItem("smk_last_autobackup");
+      const now = Date.now();
+      // Auto backup every 30 minutes
+      if (!lastBackup || now - parseInt(lastBackup) > 30 * 60 * 1000) {
+        localStorage.setItem("smk_last_autobackup", String(now));
+        const data = {
+          bills: localStorage.getItem("smk_bills"),
+          udhari: localStorage.getItem("smk_udhari"),
+          paidoff: localStorage.getItem("smk_paidoff"),
+          settings: localStorage.getItem("smk_settings"),
+          products: localStorage.getItem("smk_products"),
+          exportDate: new Date().toISOString(),
+          version: "1.0",
+          autoBackup: true,
+        };
+        localStorage.setItem("smk_autobackup_data", JSON.stringify(data));
+      }
+    }
+  }, [autoBackup, bills, products]);
 
   const saveShopDetails = () => {
     updateSettings({ shopName, shopAddress, shopGST });
@@ -89,15 +207,40 @@ const Settings = () => {
     localStorage.setItem("smk_notif_udhari", String(udhariNotif));
     localStorage.setItem("smk_sound", String(soundEnabled));
 
-    // Request browser notification permission
     if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().then(p => {
         if (p === "granted") toast.success("Browser notifications enabled!");
+        else if (p === "denied") toast.error("Notifications blocked by browser");
       });
     }
 
     setActiveModal(null);
     toast.success("Notification settings saved!");
+  };
+
+  const handleFingerprintToggle = async (enable: boolean) => {
+    if (enable) {
+      const success = await registerFingerprint();
+      if (success) {
+        setFingerprintEnabled(true);
+        localStorage.setItem("smk_fingerprint", "true");
+        toast.success("✅ Fingerprint সফলভাবে সেটআপ হয়েছে!");
+      }
+    } else {
+      setFingerprintEnabled(false);
+      localStorage.setItem("smk_fingerprint", "false");
+      localStorage.removeItem("smk_fingerprint_cred");
+      toast.success("Fingerprint বন্ধ করা হয়েছে");
+    }
+  };
+
+  const testFingerprint = async () => {
+    const success = await verifyFingerprint();
+    if (success) {
+      toast.success("✅ Fingerprint ভেরিফাই সফল!");
+    } else {
+      toast.error("❌ Fingerprint ভেরিফাই ব্যর্থ");
+    }
   };
 
   const saveSecurity = () => {
@@ -160,6 +303,26 @@ const Settings = () => {
     reader.readAsText(file);
   };
 
+  const restoreAutoBackup = () => {
+    const backupStr = localStorage.getItem("smk_autobackup_data");
+    if (!backupStr) {
+      toast.error("কোনো auto backup পাওয়া যায়নি");
+      return;
+    }
+    try {
+      const data = JSON.parse(backupStr);
+      if (data.bills) localStorage.setItem("smk_bills", data.bills);
+      if (data.udhari) localStorage.setItem("smk_udhari", data.udhari);
+      if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
+      if (data.settings) localStorage.setItem("smk_settings", data.settings);
+      if (data.products) localStorage.setItem("smk_products", data.products);
+      toast.success(`Auto backup (${new Date(data.exportDate).toLocaleString()}) থেকে restore হয়েছে! Refreshing...`);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      toast.error("Auto backup corrupted");
+    }
+  };
+
   const clearAllData = () => {
     if (confirm("Are you sure? This will delete ALL your data permanently!")) {
       Object.keys(localStorage).forEach(key => {
@@ -189,7 +352,7 @@ const Settings = () => {
   const settingsItems = [
     { icon: Store, label: "Shop Details", desc: "Name, address, GST", action: () => setActiveModal("shop") },
     { icon: Smartphone, label: "UPI Settings", desc: `${settings.upiIds.filter(u => u).length} UPI IDs configured`, action: () => setActiveModal("upi") },
-    { icon: Shield, label: "Security", desc: appLock ? "App lock enabled" : "Configure PIN lock", action: () => setActiveModal("security") },
+    { icon: Shield, label: "Security", desc: appLock ? (fingerprintEnabled ? "PIN + Fingerprint" : "PIN lock enabled") : "Configure security", action: () => setActiveModal("security") },
     { icon: Bell, label: "Notifications", desc: "Alerts & sound settings", action: () => setActiveModal("notifications") },
     { icon: Palette, label: "Appearance", desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
     { icon: Database, label: "Backup & Data", desc: `${getStorageUsage()} KB used`, action: () => setActiveModal("backup") },
@@ -288,15 +451,31 @@ const Settings = () => {
                   </div>
                 </>
               )}
-              <div className="flex items-center justify-between glass-card p-4 rounded-xl opacity-50">
+
+              {/* Fingerprint - Active */}
+              <div className="flex items-center justify-between glass-card p-4 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <Fingerprint size={18} className="text-muted-foreground" />
+                  <Fingerprint size={18} className={fingerprintEnabled ? "text-primary" : "text-muted-foreground"} />
                   <div>
-                    <p className="text-sm font-medium text-foreground">Fingerprint</p>
-                    <p className="text-[10px] text-muted-foreground">Coming soon</p>
+                    <p className="text-sm font-medium text-foreground">Fingerprint / Biometric</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {!fingerprintSupported ? "আপনার ডিভাইসে সাপোর্ট নেই" : fingerprintEnabled ? "সক্রিয় আছে" : "বায়োমেট্রিক দিয়ে আনলক করুন"}
+                    </p>
                   </div>
                 </div>
+                {fingerprintSupported ? (
+                  <ToggleSwitch value={fingerprintEnabled} onChange={handleFingerprintToggle} />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded">N/A</span>
+                )}
               </div>
+
+              {fingerprintEnabled && (
+                <button onClick={testFingerprint} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/5 transition-colors">
+                  <Fingerprint size={16} /> Fingerprint টেস্ট করুন
+                </button>
+              )}
+
               <button onClick={saveSecurity} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                 <Save size={14} /> Save Security
               </button>
@@ -342,17 +521,13 @@ const Settings = () => {
                   >
                     <div className="theme-card-inner">
                       <div className="relative h-20 rounded-xl overflow-hidden" style={{ background: theme.gradient }}>
-                        {/* Animated shimmer overlay */}
                         <div className="absolute inset-0 animate-shimmer" style={{
                           background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)`,
                           backgroundSize: "200% 100%",
                         }} />
-                        {/* 3D floating orbs */}
                         <div className="absolute w-10 h-10 rounded-full float-animation opacity-30" style={{ background: theme.colors[0], top: "10%", left: "10%", animationDelay: "0s" }} />
                         <div className="absolute w-6 h-6 rounded-full float-animation opacity-40" style={{ background: theme.colors[1], top: "30%", right: "15%", animationDelay: "1s" }} />
                         <div className="absolute w-8 h-8 rounded-full float-animation opacity-20" style={{ background: theme.colors[0], bottom: "10%", right: "30%", animationDelay: "2s" }} />
-
-                        {/* Content */}
                         <div className="absolute inset-0 flex items-center justify-between px-4">
                           <div>
                             <p className="text-white font-bold text-sm drop-shadow-lg">{theme.name}</p>
@@ -364,8 +539,6 @@ const Settings = () => {
                             </div>
                           )}
                         </div>
-
-                        {/* 3D color preview dots */}
                         <div className="absolute bottom-2 left-4 flex gap-1.5">
                           {theme.colors.map((c, i) => (
                             <div key={i} className="w-3 h-3 rounded-full border border-white/30 shadow-lg" style={{ background: c }} />
@@ -397,6 +570,22 @@ const Settings = () => {
                 </div>
               </div>
 
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="glass-card p-3 rounded-xl text-center">
+                  <p className="text-lg font-bold text-primary">{products.length}</p>
+                  <p className="text-[10px] text-muted-foreground">Products</p>
+                </div>
+                <div className="glass-card p-3 rounded-xl text-center">
+                  <p className="text-lg font-bold text-primary">{bills.length}</p>
+                  <p className="text-[10px] text-muted-foreground">Bills</p>
+                </div>
+                <div className="glass-card p-3 rounded-xl text-center">
+                  <p className="text-lg font-bold text-primary">{udhariEntries.length}</p>
+                  <p className="text-[10px] text-muted-foreground">Udhari</p>
+                </div>
+              </div>
+
               <button onClick={exportData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left">
                 <Download size={18} className="text-primary" />
                 <div>
@@ -413,6 +602,16 @@ const Settings = () => {
                 </div>
                 <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
               </label>
+
+              {localStorage.getItem("smk_autobackup_data") && (
+                <button onClick={restoreAutoBackup} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-primary/5 transition-colors text-left">
+                  <RefreshCw size={18} className="text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Restore Auto Backup</p>
+                    <p className="text-[10px] text-muted-foreground">Last auto backup restore করুন</p>
+                  </div>
+                </button>
+              )}
 
               <button onClick={clearAllData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-destructive/10 transition-colors text-left">
                 <Trash2 size={18} className="text-destructive" />
@@ -465,7 +664,7 @@ const Settings = () => {
                   <RefreshCw size={18} className="text-primary" />
                   <div>
                     <p className="text-sm font-medium text-foreground">Auto Backup</p>
-                    <p className="text-[10px] text-muted-foreground">Backup data on every change</p>
+                    <p className="text-[10px] text-muted-foreground">প্রতি ৩০ মিনিটে auto backup</p>
                   </div>
                 </div>
                 <ToggleSwitch value={autoBackup} onChange={setAutoBackup} />
