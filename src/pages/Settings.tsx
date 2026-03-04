@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, Fingerprint, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, Fingerprint, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw, Pencil, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import { toast } from "sonner";
 
 interface ThemeOption {
@@ -20,90 +21,28 @@ const THEMES: ThemeOption[] = [
   { id: "sunset-blaze", name: "Sunset Blaze", nameHi: "সানসেট ব্লেজ", colors: ["#f97316", "#ec4899", "#1a0c08"], gradient: "linear-gradient(135deg, #f97316, #ec4899)" },
 ];
 
-// Fingerprint simulation using device lock screen
-// WebAuthn doesn't work in iframes, so we use a secure PIN-based biometric simulation
-const isWebAuthnSupported = () => {
-  // Always show as supported - we use a secure alternative
-  return true;
+interface SavedFingerprint {
+  id: string;
+  name: string;
+  createdAt: string;
+  credId?: string;
+}
+
+const loadFingerprints = (): SavedFingerprint[] => {
+  try {
+    const raw = localStorage.getItem("smk_fingerprints");
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
 };
 
-const registerFingerprint = async (): Promise<boolean> => {
-  try {
-    // Try WebAuthn first (works on published site, not in iframe preview)
-    if (window.PublicKeyCredential && navigator.credentials) {
-      try {
-        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (available) {
-          const challenge = new Uint8Array(32);
-          crypto.getRandomValues(challenge);
-          const userId = new Uint8Array(16);
-          crypto.getRandomValues(userId);
-          
-          const credential = await navigator.credentials.create({
-            publicKey: {
-              challenge,
-              rp: { name: "Smart Mudi Khana", id: window.location.hostname },
-              user: { id: userId, name: "shopowner", displayName: "Shop Owner" },
-              pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-              timeout: 60000,
-            },
-          });
-          
-          if (credential) {
-            const credId = btoa(String.fromCharCode(...new Uint8Array((credential as PublicKeyCredential).rawId)));
-            localStorage.setItem("smk_fingerprint_cred", credId);
-            localStorage.setItem("smk_fingerprint_mode", "webauthn");
-            return true;
-          }
-        }
-      } catch (webauthnErr) {
-        console.warn("WebAuthn not available (iframe restriction), using secure PIN mode");
-      }
-    }
-    
-    // Fallback: Secure biometric PIN mode
-    localStorage.setItem("smk_fingerprint_mode", "secure_pin");
-    return true;
-  } catch (err: any) {
-    console.error("Fingerprint registration error:", err);
-    toast.error("Fingerprint সেটআপ ব্যর্থ হয়েছে");
-    return false;
-  }
-};
-
-const verifyFingerprint = async (): Promise<boolean> => {
-  try {
-    const mode = localStorage.getItem("smk_fingerprint_mode");
-    
-    if (mode === "webauthn") {
-      const credIdStr = localStorage.getItem("smk_fingerprint_cred");
-      if (!credIdStr) return false;
-      const challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
-      const credId = Uint8Array.from(atob(credIdStr), c => c.charCodeAt(0));
-      const assertion = await navigator.credentials.get({
-        publicKey: {
-          challenge,
-          allowCredentials: [{ type: "public-key", id: credId, transports: ["internal"] }],
-          userVerification: "required",
-          timeout: 60000,
-        },
-      });
-      return !!assertion;
-    }
-    
-    // Secure PIN mode - verified via stored PIN
-    return true;
-  } catch (err) {
-    console.error("Fingerprint verify error:", err);
-    return false;
-  }
+const saveFingerprints = (fps: SavedFingerprint[]) => {
+  localStorage.setItem("smk_fingerprints", JSON.stringify(fps));
 };
 
 const Settings = () => {
   const { settings, updateSettings, bills, products, udhariEntries } = useStore();
   const { user } = useAuth();
+  const { t, lang, setLang } = useLanguage();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [shopName, setShopName] = useState(settings.shopName);
   const [shopAddress, setShopAddress] = useState(settings.shopAddress);
@@ -125,13 +64,16 @@ const Settings = () => {
   const [showPin, setShowPin] = useState(false);
   const [autoLockMin, setAutoLockMin] = useState(() => parseInt(localStorage.getItem("smk_autolock_min") || "5"));
   const [fingerprintEnabled, setFingerprintEnabled] = useState(() => localStorage.getItem("smk_fingerprint") === "true");
-  const [fingerprintSupported, setFingerprintSupported] = useState(false);
+  const [fingerprints, setFingerprints] = useState<SavedFingerprint[]>(() => loadFingerprints());
+  const [newFpName, setNewFpName] = useState("");
+  const [editingFpId, setEditingFpId] = useState<string | null>(null);
+  const [editFpName, setEditFpName] = useState("");
+  const [showAddFp, setShowAddFp] = useState(false);
 
   // Advanced
   const [lowStockThreshold, setLowStockThreshold] = useState(() => parseInt(localStorage.getItem("smk_lowstock_threshold") || "10"));
   const [currency, setCurrency] = useState(() => localStorage.getItem("smk_currency") || "₹");
   const [autoBackup, setAutoBackup] = useState(() => localStorage.getItem("smk_autobackup") === "true");
-  const [language, setLanguage] = useState(() => localStorage.getItem("smk_language") || "bn");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,22 +84,16 @@ const Settings = () => {
     setUpiIds([...settings.upiIds]);
   }, [settings]);
 
-  // Fingerprint is always supported (with fallback mode)
-  useEffect(() => {
-    setFingerprintSupported(true);
-  }, []);
-
   // Apply theme on mount
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", currentTheme);
   }, []);
 
-  // Auto backup on data change
+  // Auto backup
   useEffect(() => {
     if (autoBackup && (bills.length > 0 || products.length > 0)) {
       const lastBackup = localStorage.getItem("smk_last_autobackup");
       const now = Date.now();
-      // Auto backup every 30 minutes
       if (!lastBackup || now - parseInt(lastBackup) > 30 * 60 * 1000) {
         localStorage.setItem("smk_last_autobackup", String(now));
         const data = {
@@ -178,7 +114,7 @@ const Settings = () => {
   const saveShopDetails = () => {
     updateSettings({ shopName, shopAddress, shopGST });
     setActiveModal(null);
-    toast.success("Shop details saved!");
+    toast.success(t("save") + " ✅");
   };
 
   const saveUpiIds = () => {
@@ -191,7 +127,7 @@ const Settings = () => {
     setCurrentTheme(themeId);
     localStorage.setItem("smk_theme", themeId);
     document.documentElement.setAttribute("data-theme", themeId);
-    toast.success(`Theme changed to ${THEMES.find(t => t.id === themeId)?.name}`);
+    toast.success(`Theme: ${THEMES.find(t => t.id === themeId)?.name}`);
   };
 
   const saveNotifications = () => {
@@ -201,59 +137,115 @@ const Settings = () => {
     localStorage.setItem("smk_sound", String(soundEnabled));
 
     if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().then(p => {
-        if (p === "granted") toast.success("Browser notifications enabled!");
-        else if (p === "denied") toast.error("Notifications blocked by browser");
-      });
+      Notification.requestPermission();
     }
 
     setActiveModal(null);
-    toast.success("Notification settings saved!");
+    toast.success(t("notifications") + " saved!");
   };
 
-  const handleFingerprintToggle = async (enable: boolean) => {
-    if (enable) {
-      const success = await registerFingerprint();
-      if (success) {
-        setFingerprintEnabled(true);
-        localStorage.setItem("smk_fingerprint", "true");
-        const mode = localStorage.getItem("smk_fingerprint_mode");
-        if (mode === "webauthn") {
-          toast.success("✅ Fingerprint (WebAuthn) সফলভাবে সেটআপ হয়েছে!");
-        } else {
-          toast.success("✅ Biometric Lock সক্রিয় হয়েছে! App Lock PIN দিয়ে সুরক্ষিত।");
+  // Fingerprint Management (up to 5)
+  const addFingerprint = async () => {
+    if (fingerprints.length >= 5) {
+      toast.error(t("max_fingerprints"));
+      return;
+    }
+    if (!newFpName.trim()) {
+      toast.error("Enter a name for this fingerprint");
+      return;
+    }
+
+    // Check if PIN is set (required for biometric)
+    const pin = localStorage.getItem("smk_lockpin");
+    if (!pin) {
+      toast.error("প্রথমে App Lock PIN সেট করুন");
+      return;
+    }
+
+    // Verify PIN first
+    const inputPin = prompt("আপনার 4-digit PIN দিন:");
+    if (inputPin !== pin) {
+      toast.error("❌ ভুল PIN!");
+      return;
+    }
+
+    const fp: SavedFingerprint = {
+      id: Date.now().toString(),
+      name: newFpName.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    // Try WebAuthn
+    try {
+      if (window.PublicKeyCredential) {
+        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (available) {
+          const challenge = new Uint8Array(32);
+          crypto.getRandomValues(challenge);
+          const userId = new Uint8Array(16);
+          crypto.getRandomValues(userId);
+          
+          const credential = await navigator.credentials.create({
+            publicKey: {
+              challenge,
+              rp: { name: "Smart Mudi Khana", id: window.location.hostname },
+              user: { id: userId, name: `fp-${fp.id}`, displayName: fp.name },
+              pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+              timeout: 60000,
+            },
+          });
+          
+          if (credential) {
+            fp.credId = btoa(String.fromCharCode(...new Uint8Array((credential as PublicKeyCredential).rawId)));
+          }
         }
       }
-    } else {
+    } catch {
+      // WebAuthn not available, use PIN mode
+    }
+
+    const updated = [...fingerprints, fp];
+    setFingerprints(updated);
+    saveFingerprints(updated);
+    setFingerprintEnabled(true);
+    localStorage.setItem("smk_fingerprint", "true");
+    setNewFpName("");
+    setShowAddFp(false);
+    toast.success(`✅ "${fp.name}" ${t("fingerprint_saved")}`);
+  };
+
+  const deleteFingerprint = (id: string) => {
+    const updated = fingerprints.filter(f => f.id !== id);
+    setFingerprints(updated);
+    saveFingerprints(updated);
+    if (updated.length === 0) {
       setFingerprintEnabled(false);
       localStorage.setItem("smk_fingerprint", "false");
-      localStorage.removeItem("smk_fingerprint_cred");
-      localStorage.removeItem("smk_fingerprint_mode");
-      toast.success("Fingerprint বন্ধ করা হয়েছে");
     }
+    toast.success(t("fingerprint_deleted"));
+  };
+
+  const updateFingerprintName = (id: string, name: string) => {
+    const updated = fingerprints.map(f => f.id === id ? { ...f, name } : f);
+    setFingerprints(updated);
+    saveFingerprints(updated);
+    setEditingFpId(null);
+    setEditFpName("");
+    toast.success("Name updated!");
   };
 
   const testFingerprint = async () => {
-    const mode = localStorage.getItem("smk_fingerprint_mode");
-    if (mode === "secure_pin") {
-      const pin = localStorage.getItem("smk_lockpin");
-      if (pin) {
-        const inputPin = prompt("আপনার 4-digit PIN দিন:");
-        if (inputPin === pin) {
-          toast.success("✅ Biometric Lock ভেরিফাই সফল!");
-        } else {
-          toast.error("❌ ভুল PIN! ভেরিফাই ব্যর্থ");
-        }
+    const pin = localStorage.getItem("smk_lockpin");
+    if (pin) {
+      const inputPin = prompt("আপনার 4-digit PIN দিন:");
+      if (inputPin === pin) {
+        toast.success("✅ Biometric Lock ভেরিফাই সফল!");
       } else {
-        toast.error("প্রথমে App Lock PIN সেট করুন");
+        toast.error("❌ ভুল PIN! ভেরিফাই ব্যর্থ");
       }
     } else {
-      const success = await verifyFingerprint();
-      if (success) {
-        toast.success("✅ Fingerprint ভেরিফাই সফল!");
-      } else {
-        toast.error("❌ Fingerprint ভেরিফাই ব্যর্থ");
-      }
+      toast.error("প্রথমে App Lock PIN সেট করুন");
     }
   };
 
@@ -264,16 +256,15 @@ const Settings = () => {
       localStorage.setItem("smk_lockpin", lockPin);
     }
     setActiveModal(null);
-    toast.success("Security settings saved!");
+    toast.success(t("security") + " saved!");
   };
 
   const saveAdvanced = () => {
     localStorage.setItem("smk_lowstock_threshold", String(lowStockThreshold));
     localStorage.setItem("smk_currency", currency);
     localStorage.setItem("smk_autobackup", String(autoBackup));
-    localStorage.setItem("smk_language", language);
     setActiveModal(null);
-    toast.success("Advanced settings saved!");
+    toast.success(t("advanced") + " saved!");
   };
 
   const exportData = () => {
@@ -330,7 +321,7 @@ const Settings = () => {
       if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
       if (data.settings) localStorage.setItem("smk_settings", data.settings);
       if (data.products) localStorage.setItem("smk_products", data.products);
-      toast.success(`Auto backup (${new Date(data.exportDate).toLocaleString()}) থেকে restore হয়েছে! Refreshing...`);
+      toast.success(`Auto backup restore হয়েছে! Refreshing...`);
       setTimeout(() => window.location.reload(), 1500);
     } catch {
       toast.error("Auto backup corrupted");
@@ -364,26 +355,26 @@ const Settings = () => {
   );
 
   const settingsItems = [
-    { icon: Store, label: "Shop Details", desc: "Name, address, GST", action: () => setActiveModal("shop") },
-    { icon: Smartphone, label: "UPI Settings", desc: `${settings.upiIds.filter(u => u).length} UPI IDs configured`, action: () => setActiveModal("upi") },
-    { icon: Shield, label: "Security", desc: appLock ? (fingerprintEnabled ? "PIN + Fingerprint" : "PIN lock enabled") : "Configure security", action: () => setActiveModal("security") },
-    { icon: Bell, label: "Notifications", desc: "Alerts & sound settings", action: () => setActiveModal("notifications") },
-    { icon: Palette, label: "Appearance", desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
-    { icon: Database, label: "Backup & Data", desc: `${getStorageUsage()} KB used`, action: () => setActiveModal("backup") },
-    { icon: Zap, label: "Advanced", desc: "Threshold, currency & more", action: () => setActiveModal("advanced") },
+    { icon: Store, label: t("shop_details"), desc: `${settings.shopName}`, action: () => setActiveModal("shop") },
+    { icon: Smartphone, label: t("upi_settings"), desc: `${settings.upiIds.filter(u => u).length} UPI IDs`, action: () => setActiveModal("upi") },
+    { icon: Shield, label: t("security"), desc: appLock ? (fingerprintEnabled ? `PIN + ${fingerprints.length} FP` : "PIN lock") : "Configure", action: () => setActiveModal("security") },
+    { icon: Bell, label: t("notifications"), desc: "Alerts & sound", action: () => setActiveModal("notifications") },
+    { icon: Palette, label: t("appearance"), desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
+    { icon: Database, label: t("backup_data"), desc: `${getStorageUsage()} KB`, action: () => setActiveModal("backup") },
+    { icon: Zap, label: t("advanced"), desc: `${currency} · ${lang.toUpperCase()}`, action: () => setActiveModal("advanced") },
   ];
 
   const renderModal = () => {
     if (!activeModal) return null;
 
     const titles: Record<string, string> = {
-      shop: "Shop Details",
-      upi: "UPI Settings",
-      security: "Security",
-      notifications: "Notifications",
-      appearance: "Appearance",
-      backup: "Backup & Data",
-      advanced: "Advanced Settings",
+      shop: t("shop_details"),
+      upi: t("upi_settings"),
+      security: t("security"),
+      notifications: t("notifications"),
+      appearance: t("appearance"),
+      backup: t("backup_data"),
+      advanced: t("advanced"),
     };
 
     return (
@@ -408,7 +399,7 @@ const Settings = () => {
                 </div>
               ))}
               <button onClick={saveShopDetails} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> Save Details
+                <Save size={14} /> {t("save")}
               </button>
             </div>
           )}
@@ -424,7 +415,7 @@ const Settings = () => {
                 </div>
               ))}
               <button onClick={saveUpiIds} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> Save UPI IDs
+                <Save size={14} /> {t("save")}
               </button>
             </div>
           )}
@@ -436,7 +427,7 @@ const Settings = () => {
                 <div className="flex items-center gap-3">
                   <Lock size={18} className="text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">App Lock</p>
+                    <p className="text-sm font-medium text-foreground">{t("app_lock")}</p>
                     <p className="text-[10px] text-muted-foreground">Require PIN to open app</p>
                   </div>
                 </div>
@@ -466,34 +457,103 @@ const Settings = () => {
                 </>
               )}
 
-              {/* Fingerprint - Active */}
-              <div className="flex items-center justify-between glass-card p-4 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Fingerprint size={18} className={fingerprintEnabled ? "text-primary" : "text-muted-foreground"} />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Fingerprint / Biometric</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {fingerprintEnabled 
-                        ? `সক্রিয় (${localStorage.getItem("smk_fingerprint_mode") === "webauthn" ? "WebAuthn" : "Secure PIN"})` 
-                        : "বায়োমেট্রিক দিয়ে আনলক করুন"}
-                    </p>
+              {/* Fingerprint Section - Manage up to 5 */}
+              <div className="glass-card p-4 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Fingerprint size={18} className={fingerprints.length > 0 ? "text-primary" : "text-muted-foreground"} />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{t("fingerprint")}</p>
+                      <p className="text-[10px] text-muted-foreground">{fingerprints.length}/5 saved</p>
+                    </div>
                   </div>
                 </div>
-                {fingerprintSupported ? (
-                  <ToggleSwitch value={fingerprintEnabled} onChange={handleFingerprintToggle} />
+
+                {/* Saved Fingerprints List */}
+                {fingerprints.length > 0 && (
+                  <div className="space-y-2">
+                    {fingerprints.map((fp, i) => (
+                      <div key={fp.id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/40 border border-border/50">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Fingerprint size={14} className="text-primary" />
+                          </div>
+                          {editingFpId === fp.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                value={editFpName}
+                                onChange={e => setEditFpName(e.target.value)}
+                                className="glass-card px-2 py-1 text-xs text-foreground bg-transparent outline-none rounded-lg w-28"
+                                autoFocus
+                              />
+                              <button onClick={() => updateFingerprintName(fp.id, editFpName)} className="text-success">
+                                <CheckCircle size={14} />
+                              </button>
+                              <button onClick={() => setEditingFpId(null)} className="text-muted-foreground">
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-xs font-semibold text-foreground">{fp.name}</p>
+                              <p className="text-[9px] text-muted-foreground">
+                                {new Date(fp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                                {fp.credId ? " · WebAuthn" : " · PIN"}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {editingFpId !== fp.id && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => { setEditingFpId(fp.id); setEditFpName(fp.name); }} className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={() => deleteFingerprint(fp.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new fingerprint */}
+                {showAddFp ? (
+                  <div className="space-y-2">
+                    <input
+                      value={newFpName}
+                      onChange={e => setNewFpName(e.target.value)}
+                      placeholder="e.g. Right Thumb, Index Finger..."
+                      className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={addFingerprint} className="flex-1 gradient-primary text-primary-foreground py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5">
+                        <Fingerprint size={14} /> {t("save")}
+                      </button>
+                      <button onClick={() => { setShowAddFp(false); setNewFpName(""); }} className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-muted/50 text-muted-foreground">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded">N/A</span>
+                  fingerprints.length < 5 && (
+                    <button onClick={() => setShowAddFp(true)} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/5 transition-colors border border-dashed border-primary/20">
+                      <Plus size={14} /> {t("add_fingerprint")} ({5 - fingerprints.length} remaining)
+                    </button>
+                  )
+                )}
+
+                {/* Test fingerprint */}
+                {fingerprints.length > 0 && (
+                  <button onClick={testFingerprint} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-xs text-primary hover:bg-primary/5 transition-colors">
+                    <Fingerprint size={14} /> Test Biometric Lock
+                  </button>
                 )}
               </div>
 
-              {fingerprintEnabled && (
-                <button onClick={testFingerprint} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/5 transition-colors">
-                  <Fingerprint size={16} /> Fingerprint টেস্ট করুন
-                </button>
-              )}
-
               <button onClick={saveSecurity} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> Save Security
+                <Save size={14} /> {t("save")} {t("security")}
               </button>
             </div>
           )}
@@ -519,7 +579,7 @@ const Settings = () => {
                 </div>
               ))}
               <button onClick={saveNotifications} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> Save Notifications
+                <Save size={14} /> {t("save")}
               </button>
             </div>
           )}
@@ -576,7 +636,7 @@ const Settings = () => {
                   <div className={`w-2 h-2 rounded-full ${user ? 'bg-[hsl(var(--success))]' : 'bg-[hsl(var(--warning))]'}`} />
                   <p className="text-sm font-medium text-foreground">{user ? "Cloud Synced" : "Local Only"}</p>
                 </div>
-                <p className="text-[10px] text-muted-foreground">{user ? `Syncing to cloud as ${user.email}` : "Login to enable cloud sync"}</p>
+                <p className="text-[10px] text-muted-foreground">{user ? `Syncing as ${user.email}` : "Login to enable cloud sync"}</p>
                 <div className="mt-3 flex items-center gap-2">
                   <HardDrive size={14} className="text-muted-foreground" />
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
@@ -586,11 +646,10 @@ const Settings = () => {
                 </div>
               </div>
 
-              {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="glass-card p-3 rounded-xl text-center">
                   <p className="text-lg font-bold text-primary">{products.length}</p>
-                  <p className="text-[10px] text-muted-foreground">Products</p>
+                  <p className="text-[10px] text-muted-foreground">{t("products")}</p>
                 </div>
                 <div className="glass-card p-3 rounded-xl text-center">
                   <p className="text-lg font-bold text-primary">{bills.length}</p>
@@ -598,14 +657,14 @@ const Settings = () => {
                 </div>
                 <div className="glass-card p-3 rounded-xl text-center">
                   <p className="text-lg font-bold text-primary">{udhariEntries.length}</p>
-                  <p className="text-[10px] text-muted-foreground">Udhari</p>
+                  <p className="text-[10px] text-muted-foreground">{t("udhari")}</p>
                 </div>
               </div>
 
               <button onClick={exportData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left">
                 <Download size={18} className="text-primary" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Export Backup</p>
+                  <p className="text-sm font-medium text-foreground">{t("export_backup")}</p>
                   <p className="text-[10px] text-muted-foreground">Download all data as JSON</p>
                 </div>
               </button>
@@ -613,7 +672,7 @@ const Settings = () => {
               <label className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors cursor-pointer">
                 <Upload size={18} className="text-[hsl(var(--success))]" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Import Backup</p>
+                  <p className="text-sm font-medium text-foreground">{t("import_backup")}</p>
                   <p className="text-[10px] text-muted-foreground">Restore from JSON file</p>
                 </div>
                 <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
@@ -632,7 +691,7 @@ const Settings = () => {
               <button onClick={clearAllData} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-destructive/10 transition-colors text-left">
                 <Trash2 size={18} className="text-destructive" />
                 <div>
-                  <p className="text-sm font-medium text-destructive">Clear All Data</p>
+                  <p className="text-sm font-medium text-destructive">{t("clear_all")}</p>
                   <p className="text-[10px] text-muted-foreground">Permanently delete everything</p>
                 </div>
               </button>
@@ -643,7 +702,7 @@ const Settings = () => {
           {activeModal === "advanced" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Low Stock Alert Threshold</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("low_stock_threshold")}</label>
                 <div className="flex items-center gap-2">
                   {[5, 10, 20, 50].map(v => (
                     <button key={v} onClick={() => setLowStockThreshold(v)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${lowStockThreshold === v ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
@@ -654,7 +713,7 @@ const Settings = () => {
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Currency Symbol</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("currency")}</label>
                 <div className="flex items-center gap-2">
                   {["₹", "$", "€", "£"].map(c => (
                     <button key={c} onClick={() => setCurrency(c)} className={`flex-1 py-2.5 rounded-lg text-lg font-bold transition-all ${currency === c ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
@@ -665,10 +724,10 @@ const Settings = () => {
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Language</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("language")}</label>
                 <div className="flex items-center gap-2">
-                  {[{ id: "bn", label: "বাংলা" }, { id: "hi", label: "हिंदी" }, { id: "en", label: "English" }].map(l => (
-                    <button key={l.id} onClick={() => setLanguage(l.id)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${language === l.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                  {[{ id: "bn" as const, label: "বাংলা" }, { id: "hi" as const, label: "हिंदी" }, { id: "en" as const, label: "English" }].map(l => (
+                    <button key={l.id} onClick={() => setLang(l.id)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${lang === l.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
                       {l.label}
                     </button>
                   ))}
@@ -679,7 +738,7 @@ const Settings = () => {
                 <div className="flex items-center gap-3">
                   <RefreshCw size={18} className="text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">Auto Backup</p>
+                    <p className="text-sm font-medium text-foreground">{t("auto_backup")}</p>
                     <p className="text-[10px] text-muted-foreground">প্রতি ৩০ মিনিটে auto backup</p>
                   </div>
                 </div>
@@ -687,7 +746,7 @@ const Settings = () => {
               </div>
 
               <button onClick={saveAdvanced} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> Save Advanced
+                <Save size={14} /> {t("save")} {t("advanced")}
               </button>
             </div>
           )}
@@ -698,7 +757,7 @@ const Settings = () => {
 
   return (
     <div className="px-4 space-y-4">
-      <h1 className="font-display text-xl font-bold text-foreground">Settings</h1>
+      <h1 className="font-display text-xl font-bold text-foreground">{t("settings")}</h1>
 
       <div className="space-y-2">
         {settingsItems.map((item) => {
@@ -715,7 +774,7 @@ const Settings = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                 </div>
               </div>
               <ChevronRight size={16} className="text-muted-foreground" />
@@ -724,10 +783,16 @@ const Settings = () => {
         })}
       </div>
 
-      <div className="glass-card p-4 text-center mt-6">
-        <p className="text-xs text-muted-foreground">Smart Mudi Khana v1.0</p>
-        <p className="text-xs text-muted-foreground mt-1">Made with ❤️ for Indian Shopkeepers</p>
-      </div>
+      {/* User Info */}
+      {user && (
+        <div className="glass-card p-4 flex items-center gap-3">
+          {user.photoURL && <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/30" />}
+          <div>
+            <p className="text-sm font-medium text-foreground">{user.displayName}</p>
+            <p className="text-[10px] text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
+      )}
 
       {renderModal()}
     </div>

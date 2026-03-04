@@ -3,6 +3,7 @@ import { Plus, Search, Package, X, Eye, Pencil, Trash2, CheckCircle, Camera, Sca
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type Product } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { compressImage, blobToDataURL } from "@/lib/imageUtils";
@@ -13,6 +14,7 @@ const UNITS = ["kg", "gram", "liter", "ml", "pcs"];
 const Stock = () => {
   const { user } = useAuth();
   const { products, addProduct, updateProduct, deleteProduct, loading } = useStore();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);

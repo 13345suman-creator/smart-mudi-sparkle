@@ -2,10 +2,12 @@ import { Bell, LogOut, LogIn, Cloud, CloudOff, X, Download, AlertTriangle, Shopp
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
+import { useLanguage } from "@/lib/language";
 
 const DashboardHeader = () => {
   const { user, loginWithGoogle, logout } = useAuth();
   const { settings, products, udhariEntries, bills } = useStore();
+  const { t } = useLanguage();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -14,9 +16,9 @@ const DashboardHeader = () => {
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
-    if (hour < 12) setGreeting("Good Morning");
-    else if (hour < 17) setGreeting("Good Afternoon");
-    else setGreeting("Good Evening");
+    if (hour < 12) setGreeting(t("good_morning"));
+    else if (hour < 17) setGreeting(t("good_afternoon"));
+    else setGreeting(t("good_evening"));
 
     setCurrentDate(now.toLocaleDateString("en-IN", {
       weekday: "long",
@@ -24,7 +26,7 @@ const DashboardHeader = () => {
       month: "long",
       day: "numeric",
     }));
-  }, []);
+  }, [t]);
 
   const handleLogin = async () => {
     setLoginLoading(true);
@@ -47,17 +49,17 @@ const DashboardHeader = () => {
   const notifications: { type: string; title: string; desc: string; color: string }[] = [];
   
   if (outOfStockProducts.length > 0) {
-    notifications.push({ type: "danger", title: `${outOfStockProducts.length} Out of Stock`, desc: outOfStockProducts.map(p => p.name).join(", "), color: "destructive" });
+    notifications.push({ type: "danger", title: `${outOfStockProducts.length} ${t("out_of_stock")}`, desc: outOfStockProducts.map(p => p.name).join(", "), color: "destructive" });
   }
   if (lowStockProducts.length > 0) {
-    notifications.push({ type: "warning", title: `${lowStockProducts.length} Low Stock Items`, desc: lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(", "), color: "warning" });
+    notifications.push({ type: "warning", title: `${lowStockProducts.length} ${t("low_stock")}`, desc: lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(", "), color: "warning" });
   }
   if (pendingUdhari.length > 0) {
     const totalUdhari = pendingUdhari.reduce((s, e) => s + e.amount, 0);
-    notifications.push({ type: "info", title: `${pendingUdhari.length} Pending Udhari`, desc: `Total: ${currency}${totalUdhari.toLocaleString()}`, color: "primary" });
+    notifications.push({ type: "info", title: `${pendingUdhari.length} ${t("pending_udhari")}`, desc: `${t("total")}: ${currency}${totalUdhari.toLocaleString()}`, color: "primary" });
   }
   if (unpaidBills.length > 0) {
-    notifications.push({ type: "warning", title: `${unpaidBills.length} Unpaid Bills`, desc: `Total: ${currency}${unpaidBills.reduce((s, b) => s + b.total, 0).toLocaleString()}`, color: "warning" });
+    notifications.push({ type: "warning", title: `${unpaidBills.length} Unpaid Bills`, desc: `${t("total")}: ${currency}${unpaidBills.reduce((s, b) => s + b.total, 0).toLocaleString()}`, color: "warning" });
   }
 
   const downloadLowStockPDF = () => {
@@ -80,7 +82,6 @@ const DashboardHeader = () => {
         tr:nth-child(even) { background: #f9f9f9; }
         .danger { color: #dc2626; font-weight: bold; }
         .warning { color: #f59e0b; font-weight: bold; }
-        .safe { color: #22c55e; }
         .footer { margin-top: 30px; text-align: center; color: #999; font-size: 10px; }
         .summary { background: #f0f9ff; border: 1px solid #bae6fd; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
         .summary span { font-weight: bold; color: #0284c7; }
@@ -132,12 +133,12 @@ const DashboardHeader = () => {
           {user ? (
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-success/10 border border-success/20">
               <Cloud size={12} className="text-success" />
-              <span className="text-[10px] text-success font-medium">Synced</span>
+              <span className="text-[10px] text-success font-medium">{t("synced")}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-warning/10 border border-warning/20">
               <CloudOff size={12} className="text-warning" />
-              <span className="text-[10px] text-warning font-medium">Offline</span>
+              <span className="text-[10px] text-warning font-medium">{t("offline")}</span>
             </div>
           )}
 
@@ -162,7 +163,7 @@ const DashboardHeader = () => {
               title="Login to sync data"
             >
               <LogIn size={16} />
-              <span className="text-xs font-semibold">{loginLoading ? "..." : "Login"}</span>
+              <span className="text-xs font-semibold">{loginLoading ? "..." : t("login")}</span>
             </button>
           )}
         </div>
@@ -184,7 +185,7 @@ const DashboardHeader = () => {
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
-                <Bell size={18} className="text-primary" /> Notifications
+                <Bell size={18} className="text-primary" /> {t("notifications")}
               </h3>
               <button onClick={() => setShowNotifPanel(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
             </div>
@@ -192,7 +193,7 @@ const DashboardHeader = () => {
             {notifications.length === 0 ? (
               <div className="text-center py-8">
                 <Bell size={32} className="text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">কোনো notification নেই! ✨</p>
+                <p className="text-sm text-muted-foreground">{t("no_notifications")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -215,7 +216,7 @@ const DashboardHeader = () => {
             {/* Low Stock PDF Download */}
             {lowStockProducts.length > 0 && (
               <button onClick={downloadLowStockPDF} className="w-full mt-4 gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Download size={14} /> Download Low Stock Report (PDF)
+                <Download size={14} /> {t("download_pdf")}
               </button>
             )}
           </div>
