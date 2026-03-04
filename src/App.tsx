@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { StoreProvider } from "@/lib/store";
+import { LanguageProvider } from "@/lib/language";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Stock from "./pages/Stock";
@@ -23,22 +24,24 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <StoreProvider>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/stock" element={<Stock />} />
-                <Route path="/billing" element={<Billing />} />
-                <Route path="/udhari" element={<Udhari />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </StoreProvider>
-        </BrowserRouter>
+        <LanguageProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <StoreProvider>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/stock" element={<Stock />} />
+                  <Route path="/billing" element={<Billing />} />
+                  <Route path="/udhari" element={<Udhari />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            </StoreProvider>
+          </BrowserRouter>
+        </LanguageProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

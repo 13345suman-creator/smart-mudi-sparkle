@@ -2,6 +2,7 @@ import { TrendingUp, ArrowRight, AlertTriangle, Zap, ShoppingBag, Clock, Sparkle
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
+import { useLanguage } from "@/lib/language";
 import AnalyticsCards from "../components/AnalyticsCards";
 
 const formatDate = (d: string | Date) => {
@@ -17,6 +18,7 @@ const formatDate = (d: string | Date) => {
 const Index = () => {
   const navigate = useNavigate();
   const { bills, udhariEntries, products, settings } = useStore();
+  const { t } = useLanguage();
   const [showLowStockDetail, setShowLowStockDetail] = useState(false);
 
   const currency = localStorage.getItem("smk_currency") || "₹";
@@ -77,15 +79,15 @@ const Index = () => {
         <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 shrink-0">
             <Activity size={12} className="text-success" />
-            <span className="text-[10px] font-semibold text-success">{todayBillCount} Bills Today</span>
+            <span className="text-[10px] font-semibold text-success">{todayBillCount} {t("bills_today")}</span>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 shrink-0">
             <ShoppingBag size={12} className="text-primary" />
-            <span className="text-[10px] font-semibold text-primary">{totalProducts} Products</span>
+            <span className="text-[10px] font-semibold text-primary">{totalProducts} {t("products")}</span>
           </div>
           <button onClick={() => lowStockProducts.length > 0 && setShowLowStockDetail(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/10 border border-warning/20 shrink-0 animate-pulse">
             <AlertTriangle size={12} className="text-warning" />
-            <span className="text-[10px] font-semibold text-warning">{lowStockProducts.length} Low Stock</span>
+            <span className="text-[10px] font-semibold text-warning">{lowStockProducts.length} {t("low_stock")}</span>
           </button>
         </div>
       </div>
@@ -105,12 +107,12 @@ const Index = () => {
                     <AlertTriangle size={16} className="text-warning" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground font-display">⚠️ Low Stock Alert</h3>
-                    <p className="text-[10px] text-muted-foreground">{lowStockProducts.length} items need restock — Tap for details</p>
+                    <h3 className="text-sm font-bold text-foreground font-display">{t("low_stock_alert")}</h3>
+                    <p className="text-[10px] text-muted-foreground">{lowStockProducts.length} {t("items_need_restock")}</p>
                   </div>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); navigate("/stock"); }} className="text-primary text-xs flex items-center gap-1 font-semibold hover:underline">
-                  View All <ArrowRight size={12} />
+                  {t("view_all")} <ArrowRight size={12} />
                 </button>
               </div>
               <div className="space-y-2">
@@ -129,7 +131,7 @@ const Index = () => {
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
                       p.stock === 0 ? 'bg-destructive/15 text-destructive border border-destructive/20 animate-pulse' : 'bg-warning/15 text-warning border border-warning/20'
                     }`}>
-                      {p.stock === 0 ? 'Out of Stock' : `${p.stock} ${p.unit} left`}
+                      {p.stock === 0 ? t("out_of_stock") : `${p.stock} ${p.unit} ${t("left")}`}
                     </span>
                   </div>
                 ))}
@@ -144,18 +146,18 @@ const Index = () => {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowLowStockDetail(false)}>
           <div className="glass-card w-full max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display font-bold text-lg text-foreground">📦 Low Stock Details</h3>
+              <h3 className="font-display font-bold text-lg text-foreground">{t("low_stock_details")}</h3>
               <button onClick={() => setShowLowStockDetail(false)} className="text-muted-foreground hover:text-foreground text-xl">✕</button>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="glass-card p-3 rounded-xl text-center border border-destructive/20">
                 <p className="text-xl font-bold text-destructive">{outOfStockProducts.length}</p>
-                <p className="text-[10px] text-muted-foreground">Out of Stock</p>
+                <p className="text-[10px] text-muted-foreground">{t("out_of_stock")}</p>
               </div>
               <div className="glass-card p-3 rounded-xl text-center border border-warning/20">
                 <p className="text-xl font-bold text-warning">{lowStockProducts.length - outOfStockProducts.length}</p>
-                <p className="text-[10px] text-muted-foreground">Low Stock</p>
+                <p className="text-[10px] text-muted-foreground">{t("low_stock")}</p>
               </div>
             </div>
 
@@ -190,7 +192,7 @@ const Index = () => {
             </div>
 
             <button onClick={downloadLowStockPDF} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-              <Download size={14} /> Download PDF Report
+              <Download size={14} /> {t("download_pdf")}
             </button>
           </div>
         </div>
@@ -200,13 +202,13 @@ const Index = () => {
       <div className="px-4">
         <div className="flex items-center gap-2 mb-3">
           <Zap size={14} className="text-primary" />
-          <h2 className="font-display font-semibold text-sm text-foreground">Quick Actions</h2>
+          <h2 className="font-display font-semibold text-sm text-foreground">{t("quick_actions")}</h2>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "New Bill", action: () => navigate("/billing"), emoji: "🧾", gradient: "gradient-card-blue" },
-            { label: "Add Stock", action: () => navigate("/stock"), emoji: "📦", gradient: "gradient-card-green" },
-            { label: "Udhari", action: () => navigate("/udhari"), emoji: "📋", gradient: "gradient-card-purple" },
+            { label: t("new_bill"), action: () => navigate("/billing"), emoji: "🧾", gradient: "gradient-card-blue" },
+            { label: t("add_stock"), action: () => navigate("/stock"), emoji: "📦", gradient: "gradient-card-green" },
+            { label: t("udhari"), action: () => navigate("/udhari"), emoji: "📋", gradient: "gradient-card-purple" },
           ].map((item, i) => (
             <button
               key={item.label}
@@ -226,10 +228,10 @@ const Index = () => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BarChart3 size={14} className="text-primary" />
-            <h2 className="font-display font-semibold text-sm text-foreground">Recent Transactions</h2>
+            <h2 className="font-display font-semibold text-sm text-foreground">{t("recent_transactions")}</h2>
           </div>
           <button onClick={() => navigate("/billing")} className="text-primary text-xs flex items-center gap-1 font-semibold hover:underline">
-            View All <ArrowRight size={12} />
+            {t("view_all")} <ArrowRight size={12} />
           </button>
         </div>
         <div className="space-y-2">
@@ -240,7 +242,7 @@ const Index = () => {
                   <TrendingUp size={16} className={bill.paymentConfirmed ? 'text-success' : 'text-warning'} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{bill.customerName || "Walk-in Customer"}</p>
+                  <p className="text-sm font-medium text-foreground">{bill.customerName || t("walk_in_customer")}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <Clock size={10} className="text-muted-foreground" />
                     <p className="text-[10px] text-muted-foreground">{bill.billNo.slice(-8)} · {formatDate(bill.date)}</p>
@@ -254,15 +256,15 @@ const Index = () => {
                     ? 'bg-success/10 text-success border border-success/20'
                     : 'bg-warning/10 text-warning border border-warning/20'
                 }`}>
-                  {bill.paymentConfirmed ? "Paid" : "Pending"}
+                  {bill.paymentConfirmed ? t("paid") : t("pending")}
                 </span>
               </div>
             </div>
           )) : (
             <div className="glass-card p-8 text-center">
               <Sparkles size={32} className="text-muted-foreground mx-auto mb-3 opacity-50" />
-              <p className="text-sm font-medium text-muted-foreground">No transactions yet</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Create your first bill to get started!</p>
+              <p className="text-sm font-medium text-muted-foreground">{t("no_transactions")}</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">{t("create_first_bill")}</p>
             </div>
           )}
         </div>
