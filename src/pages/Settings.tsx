@@ -51,7 +51,15 @@ const Settings = () => {
   const [upiIds, setUpiIds] = useState<string[]>([...settings.upiIds]);
 
   // Appearance
-  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem("smk_theme") || "midnight-ocean");
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    const saved = localStorage.getItem("smk_theme");
+    // Migrate old theme names
+    if (saved && !THEMES.find(t => t.id === saved)) {
+      localStorage.setItem("smk_theme", "arctic-frost");
+      return "arctic-frost";
+    }
+    return saved || "arctic-frost";
+  });
 
   // Notifications
   const [billNotif, setBillNotif] = useState(() => localStorage.getItem("smk_notif_bill") !== "false");
