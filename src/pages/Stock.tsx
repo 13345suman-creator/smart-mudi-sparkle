@@ -1,12 +1,9 @@
-import { useState, useRef } from "react";
-import { Plus, Search, Package, X, Eye, Pencil, Trash2, CheckCircle, Camera, ScanLine, AlertTriangle, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Plus, Search, Package, X, Eye, Pencil, Trash2, CheckCircle, ScanLine, AlertTriangle, Loader2 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type Product } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { compressImage, blobToDataURL } from "@/lib/imageUtils";
 import { toast } from "sonner";
 
 const UNITS = ["kg", "gram", "liter", "ml", "pcs"];
@@ -20,18 +17,10 @@ const Stock = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
-  const [imagePreview, setImagePreview] = useState<string>("");
-  const [editImagePreview, setEditImagePreview] = useState<string>("");
-  const [imageFile, setImageFile] = useState<Blob | null>(null);
-  const [editImageFile, setEditImageFile] = useState<Blob | null>(null);
-  const [imageUploadSuccess, setImageUploadSuccess] = useState<string | null>(null);
   const [customUnit, setCustomUnit] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanTarget, setScanTarget] = useState<"search" | "new" | "edit">("search");
   const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -49,55 +38,11 @@ const Stock = () => {
     return { label: "Safe", color: "bg-success/20 text-success", dot: "bg-success" };
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: "new" | "edit") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file);
-      const preview = await blobToDataURL(compressed);
-      if (target === "new") {
-        setImagePreview(preview);
-        setImageFile(compressed);
-      } else {
-        setEditImagePreview(preview);
-        setEditImageFile(compressed);
-      }
-      setImageUploadSuccess(preview);
-      setTimeout(() => setImageUploadSuccess(null), 2500);
-    } catch {
-      toast.error("Image compression failed");
-    }
-  };
-
-  const uploadImageToStorage = async (productId: string, blob: Blob): Promise<string> => {
-    if (!user) {
-      // Not logged in - store as data URL locally
-      return blobToDataURL(blob);
-    }
-    const storageRef = ref(storage, `users/${user.uid}/products/${productId}.jpg`);
-    await uploadBytes(storageRef, blob);
-    return getDownloadURL(storageRef);
-  };
-
-  const deleteImageFromStorage = async (productId: string) => {
-    if (!user) return;
-    try {
-      const storageRef = ref(storage, `users/${user.uid}/products/${productId}.jpg`);
-      await deleteObject(storageRef);
-    } catch { /* Image may not exist */ }
-  };
-
   const handleAdd = async () => {
     if (!newProduct.name || !newProduct.sellPrice) return;
-    setUploading(true);
     try {
-      const productId = Date.now().toString();
-      let imageUrl = "";
-      if (imageFile) {
-        imageUrl = await uploadImageToStorage(productId, imageFile);
-      }
       const product: Product = {
-        id: productId,
+        id: Date.now().toString(),
         name: newProduct.name || "",
         costPrice: newProduct.costPrice || 0,
         sellPrice: newProduct.sellPrice || 0,
@@ -106,46 +51,32 @@ const Stock = () => {
         lowStockAlert: newProduct.lowStockAlert || 5,
         expiry: newProduct.expiry || "",
         barcode: newProduct.barcode || "",
-        imageUrl,
+        imageUrl: "",
       };
       await addProduct(product);
       setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
-      setImagePreview("");
-      setImageFile(null);
       setCustomUnit(false);
       setShowAdd(false);
       toast.success("Product added successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to add product");
-    } finally {
-      setUploading(false);
     }
   };
 
   const handleEdit = async () => {
     if (!editingProduct) return;
-    setUploading(true);
     try {
-      let imageUrl = editingProduct.imageUrl;
-      if (editImageFile) {
-        imageUrl = await uploadImageToStorage(editingProduct.id, editImageFile);
-      }
-      await updateProduct({ ...editingProduct, imageUrl });
-      setSelectedProduct({ ...editingProduct, imageUrl });
+      await updateProduct({ ...editingProduct });
+      setSelectedProduct({ ...editingProduct });
       setEditingProduct(null);
-      setEditImagePreview("");
-      setEditImageFile(null);
       toast.success("Product updated!");
     } catch (err: any) {
       toast.error(err.message || "Failed to update");
-    } finally {
-      setUploading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteImageFromStorage(id);
       await deleteProduct(id);
       setSelectedProduct(null);
       setDeleteConfirm(null);
@@ -242,11 +173,7 @@ const Stock = () => {
           return (
             <div key={p.id} className="glass-card-hover p-0 overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(p)}>
               <div className="relative w-full aspect-square bg-secondary/50 flex items-center justify-center overflow-hidden">
-                {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                ) : (
-                  <Package size={36} className="text-muted-foreground/50" />
-                )}
+                <Package size={36} className="text-muted-foreground/50" />
                 <span className={`absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full backdrop-blur-md ${status.color}`}>
                   {status.label}
                 </span>
@@ -279,24 +206,8 @@ const Stock = () => {
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display font-bold text-lg text-foreground">Add Product</h3>
-              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 }); setImagePreview(""); setImageFile(null); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
+              <button onClick={() => { setShowAdd(false); setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 }); setCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
-
-            {/* Image Upload */}
-            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30">
-              {imagePreview ? (
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-xl" />
-              ) : (
-                <>
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Camera size={22} className="text-primary" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Tap to upload image</p>
-                  <p className="text-[10px] text-muted-foreground">Auto-compressed to max 500KB</p>
-                </>
-              )}
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, "new")} />
 
             <div className="space-y-3">
               {[
@@ -354,8 +265,8 @@ const Stock = () => {
                 )}
               </div>
 
-              <button onClick={handleAdd} disabled={uploading} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary disabled:opacity-50 flex items-center justify-center gap-2">
-                {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : "Add Product"}
+              <button onClick={handleAdd} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary flex items-center justify-center gap-2">
+                Add Product
               </button>
             </div>
           </div>
@@ -372,16 +283,8 @@ const Stock = () => {
             </div>
 
             <div className="flex justify-center mb-5">
-              <div className="product-3d-container">
-                <div className="product-3d-image">
-                  {selectedProduct.imageUrl ? (
-                    <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover rounded-2xl" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-secondary rounded-2xl">
-                      <Package size={48} className="text-muted-foreground/40" />
-                    </div>
-                  )}
-                </div>
+              <div className="w-24 h-24 rounded-2xl bg-secondary/50 flex items-center justify-center">
+                <Package size={40} className="text-muted-foreground/40" />
               </div>
             </div>
 
@@ -414,14 +317,14 @@ const Stock = () => {
 
             <div className="glass-card p-3 rounded-xl mt-3 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Profit per unit</span>
-              <span className="text-sm font-bold text-success">₹{selectedProduct.sellPrice - selectedProduct.costPrice}</span>
+              <span className="text-sm font-bold text-[hsl(var(--success))]">₹{selectedProduct.sellPrice - selectedProduct.costPrice}</span>
             </div>
 
             <div className="flex gap-2 mt-4">
               <button onClick={() => setDeleteConfirm(selectedProduct)} className="flex-1 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors">
                 <Trash2 size={14} /> Delete
               </button>
-              <button onClick={() => { setEditingProduct({ ...selectedProduct }); setEditImagePreview(""); setEditImageFile(null); }} className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary">
+              <button onClick={() => { setEditingProduct({ ...selectedProduct }); }} className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary">
                 <Pencil size={14} /> Edit
               </button>
             </div>
@@ -437,18 +340,6 @@ const Stock = () => {
               <h3 className="font-display font-bold text-lg text-foreground">Edit Product</h3>
               <button onClick={() => setEditingProduct(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
-
-            <div onClick={() => editFileInputRef.current?.click()} className="w-full aspect-video rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors mb-4 overflow-hidden bg-secondary/30">
-              {editImagePreview || editingProduct.imageUrl ? (
-                <img src={editImagePreview || editingProduct.imageUrl} alt="Preview" className="w-full h-full object-cover rounded-xl" />
-              ) : (
-                <>
-                  <Camera size={22} className="text-primary" />
-                  <p className="text-xs text-muted-foreground">Tap to upload image</p>
-                </>
-              )}
-            </div>
-            <input ref={editFileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, "edit")} />
 
             <div className="space-y-3">
               {[
@@ -484,8 +375,8 @@ const Stock = () => {
                   ))}
                 </div>
               </div>
-              <button onClick={handleEdit} disabled={uploading} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary disabled:opacity-50 flex items-center justify-center gap-2">
-                {uploading ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : "Save Changes"}
+              <button onClick={handleEdit} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-2 glow-primary flex items-center justify-center gap-2">
+                Save Changes
               </button>
             </div>
           </div>
@@ -508,21 +399,6 @@ const Stock = () => {
                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-muted/50 text-foreground border border-border">Cancel</button>
                 <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">Delete</button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image Upload Success */}
-      {imageUploadSuccess && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "hsl(220 20% 5% / 0.7)", backdropFilter: "blur(6px)" }}>
-          <div className="glass-card p-6 rounded-2xl animate-scale-in flex flex-col items-center gap-4 max-w-xs w-[85%]">
-            <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center">
-              <CheckCircle size={32} className="text-success" />
-            </div>
-            <p className="text-sm font-bold text-foreground text-center">Image Uploaded Successfully!</p>
-            <div className="w-24 h-24 rounded-xl overflow-hidden border border-border">
-              <img src={imageUploadSuccess} alt="Uploaded" className="w-full h-full object-cover" />
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, Fingerprint, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw, Pencil, Plus } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
@@ -22,24 +22,6 @@ const THEMES: ThemeOption[] = [
   { id: "molten-lava", name: "Molten Lava", nameHi: "মোল্টেন লাভা", colors: ["#ef4444", "#f97316", "#1a0a08"], gradient: "linear-gradient(135deg, #ef4444, #f97316)" },
 ];
 
-interface SavedFingerprint {
-  id: string;
-  name: string;
-  createdAt: string;
-  credId?: string;
-}
-
-const loadFingerprints = (): SavedFingerprint[] => {
-  try {
-    const raw = localStorage.getItem("smk_fingerprints");
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-};
-
-const saveFingerprints = (fps: SavedFingerprint[]) => {
-  localStorage.setItem("smk_fingerprints", JSON.stringify(fps));
-};
-
 const Settings = () => {
   const { settings, updateSettings, bills, products, udhariEntries } = useStore();
   const { user } = useAuth();
@@ -53,7 +35,6 @@ const Settings = () => {
   // Appearance
   const [currentTheme, setCurrentTheme] = useState(() => {
     const saved = localStorage.getItem("smk_theme");
-    // Migrate old theme names
     if (saved && !THEMES.find(t => t.id === saved)) {
       localStorage.setItem("smk_theme", "arctic-frost");
       return "arctic-frost";
@@ -67,17 +48,11 @@ const Settings = () => {
   const [udhariNotif, setUdhariNotif] = useState(() => localStorage.getItem("smk_notif_udhari") !== "false");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("smk_sound") !== "false");
 
-  // Security
+  // Security - PIN only
   const [appLock, setAppLock] = useState(() => localStorage.getItem("smk_applock") === "true");
   const [lockPin, setLockPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [autoLockMin, setAutoLockMin] = useState(() => parseInt(localStorage.getItem("smk_autolock_min") || "5"));
-  const [fingerprintEnabled, setFingerprintEnabled] = useState(() => localStorage.getItem("smk_fingerprint") === "true");
-  const [fingerprints, setFingerprints] = useState<SavedFingerprint[]>(() => loadFingerprints());
-  const [newFpName, setNewFpName] = useState("");
-  const [editingFpId, setEditingFpId] = useState<string | null>(null);
-  const [editFpName, setEditFpName] = useState("");
-  const [showAddFp, setShowAddFp] = useState(false);
 
   // Advanced
   const [lowStockThreshold, setLowStockThreshold] = useState(() => parseInt(localStorage.getItem("smk_lowstock_threshold") || "10"));
@@ -93,12 +68,10 @@ const Settings = () => {
     setUpiIds([...settings.upiIds]);
   }, [settings]);
 
-  // Apply theme on mount
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", currentTheme);
   }, []);
 
-  // Auto backup
   useEffect(() => {
     if (autoBackup && (bills.length > 0 || products.length > 0)) {
       const lastBackup = localStorage.getItem("smk_last_autobackup");
@@ -144,118 +117,11 @@ const Settings = () => {
     localStorage.setItem("smk_notif_lowstock", String(lowStockNotif));
     localStorage.setItem("smk_notif_udhari", String(udhariNotif));
     localStorage.setItem("smk_sound", String(soundEnabled));
-
     if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-
     setActiveModal(null);
     toast.success(t("notifications") + " saved!");
-  };
-
-  // Fingerprint Management (up to 5)
-  const addFingerprint = async () => {
-    if (fingerprints.length >= 5) {
-      toast.error(t("max_fingerprints"));
-      return;
-    }
-    if (!newFpName.trim()) {
-      toast.error("Enter a name for this fingerprint");
-      return;
-    }
-
-    // Check if PIN is set (required for biometric)
-    const pin = localStorage.getItem("smk_lockpin");
-    if (!pin) {
-      toast.error("প্রথমে App Lock PIN সেট করুন");
-      return;
-    }
-
-    // Verify PIN first
-    const inputPin = prompt("আপনার 4-digit PIN দিন:");
-    if (inputPin !== pin) {
-      toast.error("❌ ভুল PIN!");
-      return;
-    }
-
-    const fp: SavedFingerprint = {
-      id: Date.now().toString(),
-      name: newFpName.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    // Try WebAuthn
-    try {
-      if (window.PublicKeyCredential) {
-        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (available) {
-          const challenge = new Uint8Array(32);
-          crypto.getRandomValues(challenge);
-          const userId = new Uint8Array(16);
-          crypto.getRandomValues(userId);
-          
-          const credential = await navigator.credentials.create({
-            publicKey: {
-              challenge,
-              rp: { name: "Smart Mudi Khana", id: window.location.hostname },
-              user: { id: userId, name: `fp-${fp.id}`, displayName: fp.name },
-              pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-              timeout: 60000,
-            },
-          });
-          
-          if (credential) {
-            fp.credId = btoa(String.fromCharCode(...new Uint8Array((credential as PublicKeyCredential).rawId)));
-          }
-        }
-      }
-    } catch {
-      // WebAuthn not available, use PIN mode
-    }
-
-    const updated = [...fingerprints, fp];
-    setFingerprints(updated);
-    saveFingerprints(updated);
-    setFingerprintEnabled(true);
-    localStorage.setItem("smk_fingerprint", "true");
-    setNewFpName("");
-    setShowAddFp(false);
-    toast.success(`✅ "${fp.name}" ${t("fingerprint_saved")}`);
-  };
-
-  const deleteFingerprint = (id: string) => {
-    const updated = fingerprints.filter(f => f.id !== id);
-    setFingerprints(updated);
-    saveFingerprints(updated);
-    if (updated.length === 0) {
-      setFingerprintEnabled(false);
-      localStorage.setItem("smk_fingerprint", "false");
-    }
-    toast.success(t("fingerprint_deleted"));
-  };
-
-  const updateFingerprintName = (id: string, name: string) => {
-    const updated = fingerprints.map(f => f.id === id ? { ...f, name } : f);
-    setFingerprints(updated);
-    saveFingerprints(updated);
-    setEditingFpId(null);
-    setEditFpName("");
-    toast.success("Name updated!");
-  };
-
-  const testFingerprint = async () => {
-    const pin = localStorage.getItem("smk_lockpin");
-    if (pin) {
-      const inputPin = prompt("আপনার 4-digit PIN দিন:");
-      if (inputPin === pin) {
-        toast.success("✅ Biometric Lock ভেরিফাই সফল!");
-      } else {
-        toast.error("❌ ভুল PIN! ভেরিফাই ব্যর্থ");
-      }
-    } else {
-      toast.error("প্রথমে App Lock PIN সেট করুন");
-    }
   };
 
   const saveSecurity = () => {
@@ -263,6 +129,9 @@ const Settings = () => {
     localStorage.setItem("smk_autolock_min", String(autoLockMin));
     if (appLock && lockPin.length === 4) {
       localStorage.setItem("smk_lockpin", lockPin);
+    }
+    if (!appLock) {
+      localStorage.removeItem("smk_lockpin");
     }
     setActiveModal(null);
     toast.success(t("security") + " saved!");
@@ -366,7 +235,7 @@ const Settings = () => {
   const settingsItems = [
     { icon: Store, label: t("shop_details"), desc: `${settings.shopName}`, action: () => setActiveModal("shop") },
     { icon: Smartphone, label: t("upi_settings"), desc: `${settings.upiIds.filter(u => u).length} UPI IDs`, action: () => setActiveModal("upi") },
-    { icon: Shield, label: t("security"), desc: appLock ? (fingerprintEnabled ? `PIN + ${fingerprints.length} FP` : "PIN lock") : "Configure", action: () => setActiveModal("security") },
+    { icon: Shield, label: t("security"), desc: appLock ? "PIN Lock Active" : "Configure", action: () => setActiveModal("security") },
     { icon: Bell, label: t("notifications"), desc: "Alerts & sound", action: () => setActiveModal("notifications") },
     { icon: Palette, label: t("appearance"), desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
     { icon: Database, label: t("backup_data"), desc: `${getStorageUsage()} KB`, action: () => setActiveModal("backup") },
@@ -429,155 +298,88 @@ const Settings = () => {
             </div>
           )}
 
-          {/* Security */}
+          {/* Security - PIN Only */}
           {activeModal === "security" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between glass-card p-4 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Lock size={18} className="text-primary" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{t("app_lock")}</p>
-                    <p className="text-[10px] text-muted-foreground">Require PIN to open app</p>
+              {/* App Lock Toggle */}
+              <div className="glass-card p-4 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+                      <Lock size={18} className="text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{t("app_lock")}</p>
+                      <p className="text-[10px] text-muted-foreground">PIN দিয়ে app lock করুন</p>
+                    </div>
                   </div>
+                  <ToggleSwitch value={appLock} onChange={setAppLock} />
                 </div>
-                <ToggleSwitch value={appLock} onChange={setAppLock} />
               </div>
+
               {appLock && (
                 <>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Set 4-digit PIN</label>
+                  {/* PIN Input */}
+                  <div className="glass-card p-4 rounded-xl space-y-3">
+                    <label className="text-xs font-medium text-foreground flex items-center gap-2">
+                      <Shield size={12} className="text-primary" /> Set 4-Digit PIN
+                    </label>
                     <div className="relative">
-                      <input type={showPin ? "text" : "password"} maxLength={4} value={lockPin} onChange={e => setLockPin(e.target.value.replace(/\D/g, ""))} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg text-center tracking-[1em] font-mono pr-10" placeholder="• • • •" />
-                      <button onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      <input
+                        type={showPin ? "text" : "password"}
+                        maxLength={4}
+                        value={lockPin}
+                        onChange={e => setLockPin(e.target.value.replace(/\D/g, ""))}
+                        className="w-full glass-card px-4 py-3 text-lg text-foreground bg-transparent outline-none rounded-xl text-center tracking-[1.2em] font-mono focus:ring-2 focus:ring-primary/50 pr-12"
+                        placeholder="• • • •"
+                      />
+                      <button onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                         {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {lockPin.length > 0 && lockPin.length < 4 && (
+                      <p className="text-[10px] text-warning">PIN must be 4 digits</p>
+                    )}
+                    {lockPin.length === 4 && (
+                      <p className="text-[10px] text-[hsl(var(--success))] flex items-center gap-1">
+                        <CheckCircle size={10} /> PIN ready to save
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Auto-lock after (minutes)</label>
-                    <div className="flex items-center gap-2">
+
+                  {/* Auto Lock Timer */}
+                  <div className="glass-card p-4 rounded-xl space-y-3">
+                    <label className="text-xs font-medium text-foreground flex items-center gap-2">
+                      <Clock size={12} className="text-primary" /> Auto-Lock Timer
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
                       {[1, 5, 15, 30].map(m => (
-                        <button key={m} onClick={() => setAutoLockMin(m)} className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${autoLockMin === m ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                        <button
+                          key={m}
+                          onClick={() => setAutoLockMin(m)}
+                          className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                            autoLockMin === m
+                              ? 'gradient-primary text-primary-foreground glow-primary'
+                              : 'glass-card text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
                           {m} min
                         </button>
                       ))}
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      App will auto-lock after {autoLockMin} minute{autoLockMin > 1 ? 's' : ''} of inactivity
+                    </p>
+                  </div>
+
+                  {/* Info card */}
+                  <div className="rounded-xl p-3 border border-primary/15 bg-primary/5">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      💡 App open করলে PIN দিতে হবে। PIN ভুলে গেলে <span className="text-primary font-medium">Forgot?</span> button এ ক্লিক করে email verification দিয়ে reset করতে পারবেন।
+                    </p>
                   </div>
                 </>
               )}
-
-              {/* Fingerprint / Biometric Section - Professional Phone-style */}
-              <div className="glass-card rounded-xl overflow-hidden">
-                {/* Header with gradient */}
-                <div className="p-4 border-b border-border/30" style={{ background: 'var(--theme-gradient)', opacity: 0.9 }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-                      <Fingerprint size={22} className="text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{t("fingerprint")}</p>
-                      <p className="text-[10px] text-white/70">{fingerprints.length}/5 registered · {fingerprintEnabled ? "Active" : "Inactive"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 space-y-3">
-                  {/* Fingerprint visual indicator */}
-                  {fingerprints.length === 0 && (
-                    <div className="flex flex-col items-center py-6 opacity-60">
-                      <div className="relative w-20 h-20 mb-3">
-                        <div className="absolute inset-0 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                          <Fingerprint size={36} className="text-muted-foreground/40" />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-center">No fingerprints registered</p>
-                      <p className="text-[10px] text-muted-foreground/60 text-center mt-1">Add fingerprints for quick & secure access</p>
-                    </div>
-                  )}
-
-                  {/* Saved Fingerprints - Phone-style list */}
-                  {fingerprints.length > 0 && (
-                    <div className="space-y-0 rounded-xl overflow-hidden border border-border/40">
-                      {fingerprints.map((fp, i) => (
-                        <div key={fp.id} className={`flex items-center justify-between p-3.5 bg-secondary/20 ${i < fingerprints.length - 1 ? 'border-b border-border/20' : ''}`}>
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center fp-pulse">
-                              <Fingerprint size={16} className="text-primary" />
-                            </div>
-                            {editingFpId === fp.id ? (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  value={editFpName}
-                                  onChange={e => setEditFpName(e.target.value)}
-                                  className="glass-card px-2 py-1.5 text-xs text-foreground bg-transparent outline-none rounded-lg w-28"
-                                  autoFocus
-                                />
-                                <button onClick={() => updateFingerprintName(fp.id, editFpName)} className="text-success"><CheckCircle size={15} /></button>
-                                <button onClick={() => setEditingFpId(null)} className="text-muted-foreground"><X size={15} /></button>
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-[13px] font-semibold text-foreground">{fp.name}</p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Added {new Date(fp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
-                                  {fp.credId ? " · Biometric" : " · PIN verified"}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          {editingFpId !== fp.id && (
-                            <div className="flex items-center gap-0.5">
-                              <button onClick={() => { setEditingFpId(fp.id); setEditFpName(fp.name); }} className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => deleteFingerprint(fp.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add fingerprint - expanded form */}
-                  {showAddFp ? (
-                    <div className="space-y-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Plus size={14} className="text-primary" />
-                        <p className="text-xs font-semibold text-foreground">Register New Fingerprint</p>
-                      </div>
-                      <input
-                        value={newFpName}
-                        onChange={e => setNewFpName(e.target.value)}
-                        placeholder="e.g. Right Thumb, Index Finger..."
-                        className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground"
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={addFingerprint} className="flex-1 gradient-primary text-primary-foreground py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5">
-                          <Fingerprint size={14} /> Register
-                        </button>
-                        <button onClick={() => { setShowAddFp(false); setNewFpName(""); }} className="px-5 py-2.5 rounded-xl text-xs font-semibold glass-card text-muted-foreground hover:text-foreground transition-colors">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    fingerprints.length < 5 && (
-                      <button onClick={() => setShowAddFp(true)} className="w-full p-3.5 rounded-xl flex items-center justify-center gap-2 text-sm font-medium text-primary hover:bg-primary/5 transition-all border border-dashed border-primary/25 hover:border-primary/50">
-                        <Plus size={15} /> Add Fingerprint ({5 - fingerprints.length} slots left)
-                      </button>
-                    )
-                  )}
-
-                  {/* Test button */}
-                  {fingerprints.length > 0 && (
-                    <button onClick={testFingerprint} className="w-full p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-medium text-primary glass-card hover:bg-primary/5 transition-colors border border-primary/15">
-                      <Shield size={14} /> Verify Biometric Lock
-                    </button>
-                  )}
-                </div>
-              </div>
 
               <button onClick={saveSecurity} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                 <Save size={14} /> {t("save")} {t("security")}
@@ -611,7 +413,7 @@ const Settings = () => {
             </div>
           )}
 
-          {/* Appearance - 5 Themes */}
+          {/* Appearance */}
           {activeModal === "appearance" && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">Choose your premium 3D theme</p>
