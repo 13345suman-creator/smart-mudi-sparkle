@@ -94,52 +94,6 @@ const Index = () => {
 
       <AnalyticsCards todaySales={todaySales} pendingUdhari={totalPendingUdhari} udhariCustomers={udhariEntries.length} />
 
-      {/* Low Stock Alerts - Blinking */}
-      {lowStockProducts.length > 0 && (
-        <div className="px-4">
-          <div className="glass-card p-4 border border-warning/20 relative overflow-hidden cursor-pointer" onClick={() => setShowLowStockDetail(true)}>
-            <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-warning/5 blur-[60px]" />
-            <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-warning animate-ping" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-warning/10 flex items-center justify-center border border-warning/20 animate-pulse">
-                    <AlertTriangle size={16} className="text-warning" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground font-display">{t("low_stock_alert")}</h3>
-                    <p className="text-[10px] text-muted-foreground">{lowStockProducts.length} {t("items_need_restock")}</p>
-                  </div>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); navigate("/stock"); }} className="text-primary text-xs flex items-center gap-1 font-semibold hover:underline">
-                  {t("view_all")} <ArrowRight size={12} />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {lowStockProducts.slice(0, 4).map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-secondary/40 border border-border/50 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
-                    <div className="flex items-center gap-2">
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} alt="" className="w-7 h-7 rounded-lg object-cover" />
-                      ) : (
-                        <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
-                          <ShoppingBag size={12} className="text-muted-foreground" />
-                        </div>
-                      )}
-                      <p className="text-xs font-medium text-foreground">{p.name}</p>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                      p.stock === 0 ? 'bg-destructive/15 text-destructive border border-destructive/20 animate-pulse' : 'bg-warning/15 text-warning border border-warning/20'
-                    }`}>
-                      {p.stock === 0 ? t("out_of_stock") : `${p.stock} ${p.unit} ${t("left")}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Low Stock Detail Modal */}
       {showLowStockDetail && (
