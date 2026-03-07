@@ -14,11 +14,12 @@ interface ThemeOption {
 }
 
 const THEMES: ThemeOption[] = [
-  { id: "midnight-ocean", name: "Midnight Ocean", nameHi: "মিডনাইট ওশান", colors: ["#00d4aa", "#3b82f6", "#1a1a2e"], gradient: "linear-gradient(135deg, #00d4aa, #3b82f6)" },
-  { id: "neon-cyber", name: "Neon Cyber", nameHi: "নিওন সাইবার", colors: ["#ec4899", "#06b6d4", "#1a0a2e"], gradient: "linear-gradient(135deg, #ec4899, #06b6d4)" },
-  { id: "royal-gold", name: "Royal Gold", nameHi: "রয়্যাল গোল্ড", colors: ["#eab308", "#ef6c00", "#1a1508"], gradient: "linear-gradient(135deg, #eab308, #ef6c00)" },
-  { id: "forest-emerald", name: "Forest Emerald", nameHi: "ফরেস্ট এমেরাল্ড", colors: ["#22c55e", "#84cc16", "#0a1a10"], gradient: "linear-gradient(135deg, #22c55e, #84cc16)" },
-  { id: "sunset-blaze", name: "Sunset Blaze", nameHi: "সানসেট ব্লেজ", colors: ["#f97316", "#ec4899", "#1a0c08"], gradient: "linear-gradient(135deg, #f97316, #ec4899)" },
+  { id: "arctic-frost", name: "Arctic Frost", nameHi: "আর্কটিক ফ্রস্ট", colors: ["#38bdf8", "#6366f1", "#0f172a"], gradient: "linear-gradient(135deg, #38bdf8, #6366f1)" },
+  { id: "cherry-blossom", name: "Cherry Blossom", nameHi: "চেরি ব্লসম", colors: ["#f472b6", "#c084fc", "#1a0a14"], gradient: "linear-gradient(135deg, #f472b6, #c084fc)" },
+  { id: "obsidian-gold", name: "Obsidian Gold", nameHi: "অবসিডিয়ান গোল্ড", colors: ["#eab308", "#ea580c", "#171209"], gradient: "linear-gradient(135deg, #eab308, #ea580c)" },
+  { id: "aurora-green", name: "Aurora Green", nameHi: "অরোরা গ্রীন", colors: ["#34d399", "#22d3ee", "#0a1612"], gradient: "linear-gradient(135deg, #34d399, #22d3ee)" },
+  { id: "velvet-purple", name: "Velvet Purple", nameHi: "ভেলভেট পার্পল", colors: ["#a78bfa", "#3b82f6", "#0d0a1a"], gradient: "linear-gradient(135deg, #a78bfa, #3b82f6)" },
+  { id: "molten-lava", name: "Molten Lava", nameHi: "মোল্টেন লাভা", colors: ["#ef4444", "#f97316", "#1a0a08"], gradient: "linear-gradient(135deg, #ef4444, #f97316)" },
 ];
 
 interface SavedFingerprint {
@@ -50,7 +51,15 @@ const Settings = () => {
   const [upiIds, setUpiIds] = useState<string[]>([...settings.upiIds]);
 
   // Appearance
-  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem("smk_theme") || "midnight-ocean");
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    const saved = localStorage.getItem("smk_theme");
+    // Migrate old theme names
+    if (saved && !THEMES.find(t => t.id === saved)) {
+      localStorage.setItem("smk_theme", "arctic-frost");
+      return "arctic-frost";
+    }
+    return saved || "arctic-frost";
+  });
 
   // Notifications
   const [billNotif, setBillNotif] = useState(() => localStorage.getItem("smk_notif_bill") !== "false");
@@ -457,99 +466,117 @@ const Settings = () => {
                 </>
               )}
 
-              {/* Fingerprint Section - Manage up to 5 */}
-              <div className="glass-card p-4 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+              {/* Fingerprint / Biometric Section - Professional Phone-style */}
+              <div className="glass-card rounded-xl overflow-hidden">
+                {/* Header with gradient */}
+                <div className="p-4 border-b border-border/30" style={{ background: 'var(--theme-gradient)', opacity: 0.9 }}>
                   <div className="flex items-center gap-3">
-                    <Fingerprint size={18} className={fingerprints.length > 0 ? "text-primary" : "text-muted-foreground"} />
+                    <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                      <Fingerprint size={22} className="text-white" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{t("fingerprint")}</p>
-                      <p className="text-[10px] text-muted-foreground">{fingerprints.length}/5 saved</p>
+                      <p className="text-sm font-bold text-white">{t("fingerprint")}</p>
+                      <p className="text-[10px] text-white/70">{fingerprints.length}/5 registered · {fingerprintEnabled ? "Active" : "Inactive"}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Saved Fingerprints List */}
-                {fingerprints.length > 0 && (
-                  <div className="space-y-2">
-                    {fingerprints.map((fp, i) => (
-                      <div key={fp.id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/40 border border-border/50">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Fingerprint size={14} className="text-primary" />
-                          </div>
-                          {editingFpId === fp.id ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                value={editFpName}
-                                onChange={e => setEditFpName(e.target.value)}
-                                className="glass-card px-2 py-1 text-xs text-foreground bg-transparent outline-none rounded-lg w-28"
-                                autoFocus
-                              />
-                              <button onClick={() => updateFingerprintName(fp.id, editFpName)} className="text-success">
-                                <CheckCircle size={14} />
-                              </button>
-                              <button onClick={() => setEditingFpId(null)} className="text-muted-foreground">
-                                <X size={14} />
-                              </button>
+                <div className="p-4 space-y-3">
+                  {/* Fingerprint visual indicator */}
+                  {fingerprints.length === 0 && (
+                    <div className="flex flex-col items-center py-6 opacity-60">
+                      <div className="relative w-20 h-20 mb-3">
+                        <div className="absolute inset-0 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                          <Fingerprint size={36} className="text-muted-foreground/40" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">No fingerprints registered</p>
+                      <p className="text-[10px] text-muted-foreground/60 text-center mt-1">Add fingerprints for quick & secure access</p>
+                    </div>
+                  )}
+
+                  {/* Saved Fingerprints - Phone-style list */}
+                  {fingerprints.length > 0 && (
+                    <div className="space-y-0 rounded-xl overflow-hidden border border-border/40">
+                      {fingerprints.map((fp, i) => (
+                        <div key={fp.id} className={`flex items-center justify-between p-3.5 bg-secondary/20 ${i < fingerprints.length - 1 ? 'border-b border-border/20' : ''}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center fp-pulse">
+                              <Fingerprint size={16} className="text-primary" />
                             </div>
-                          ) : (
-                            <div>
-                              <p className="text-xs font-semibold text-foreground">{fp.name}</p>
-                              <p className="text-[9px] text-muted-foreground">
-                                {new Date(fp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
-                                {fp.credId ? " · WebAuthn" : " · PIN"}
-                              </p>
+                            {editingFpId === fp.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  value={editFpName}
+                                  onChange={e => setEditFpName(e.target.value)}
+                                  className="glass-card px-2 py-1.5 text-xs text-foreground bg-transparent outline-none rounded-lg w-28"
+                                  autoFocus
+                                />
+                                <button onClick={() => updateFingerprintName(fp.id, editFpName)} className="text-success"><CheckCircle size={15} /></button>
+                                <button onClick={() => setEditingFpId(null)} className="text-muted-foreground"><X size={15} /></button>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-[13px] font-semibold text-foreground">{fp.name}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Added {new Date(fp.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                                  {fp.credId ? " · Biometric" : " · PIN verified"}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          {editingFpId !== fp.id && (
+                            <div className="flex items-center gap-0.5">
+                              <button onClick={() => { setEditingFpId(fp.id); setEditFpName(fp.name); }} className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => deleteFingerprint(fp.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                                <Trash2 size={13} />
+                              </button>
                             </div>
                           )}
                         </div>
-                        {editingFpId !== fp.id && (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => { setEditingFpId(fp.id); setEditFpName(fp.name); }} className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">
-                              <Pencil size={12} />
-                            </button>
-                            <button onClick={() => deleteFingerprint(fp.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add new fingerprint */}
-                {showAddFp ? (
-                  <div className="space-y-2">
-                    <input
-                      value={newFpName}
-                      onChange={e => setNewFpName(e.target.value)}
-                      placeholder="e.g. Right Thumb, Index Finger..."
-                      className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground"
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={addFingerprint} className="flex-1 gradient-primary text-primary-foreground py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5">
-                        <Fingerprint size={14} /> {t("save")}
-                      </button>
-                      <button onClick={() => { setShowAddFp(false); setNewFpName(""); }} className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-muted/50 text-muted-foreground">
-                        Cancel
-                      </button>
+                      ))}
                     </div>
-                  </div>
-                ) : (
-                  fingerprints.length < 5 && (
-                    <button onClick={() => setShowAddFp(true)} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/5 transition-colors border border-dashed border-primary/20">
-                      <Plus size={14} /> {t("add_fingerprint")} ({5 - fingerprints.length} remaining)
-                    </button>
-                  )
-                )}
+                  )}
 
-                {/* Test fingerprint */}
-                {fingerprints.length > 0 && (
-                  <button onClick={testFingerprint} className="w-full glass-card p-3 rounded-xl flex items-center justify-center gap-2 text-xs text-primary hover:bg-primary/5 transition-colors">
-                    <Fingerprint size={14} /> Test Biometric Lock
-                  </button>
-                )}
+                  {/* Add fingerprint - expanded form */}
+                  {showAddFp ? (
+                    <div className="space-y-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Plus size={14} className="text-primary" />
+                        <p className="text-xs font-semibold text-foreground">Register New Fingerprint</p>
+                      </div>
+                      <input
+                        value={newFpName}
+                        onChange={e => setNewFpName(e.target.value)}
+                        placeholder="e.g. Right Thumb, Index Finger..."
+                        className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={addFingerprint} className="flex-1 gradient-primary text-primary-foreground py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5">
+                          <Fingerprint size={14} /> Register
+                        </button>
+                        <button onClick={() => { setShowAddFp(false); setNewFpName(""); }} className="px-5 py-2.5 rounded-xl text-xs font-semibold glass-card text-muted-foreground hover:text-foreground transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    fingerprints.length < 5 && (
+                      <button onClick={() => setShowAddFp(true)} className="w-full p-3.5 rounded-xl flex items-center justify-center gap-2 text-sm font-medium text-primary hover:bg-primary/5 transition-all border border-dashed border-primary/25 hover:border-primary/50">
+                        <Plus size={15} /> Add Fingerprint ({5 - fingerprints.length} slots left)
+                      </button>
+                    )
+                  )}
+
+                  {/* Test button */}
+                  {fingerprints.length > 0 && (
+                    <button onClick={testFingerprint} className="w-full p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-medium text-primary glass-card hover:bg-primary/5 transition-colors border border-primary/15">
+                      <Shield size={14} /> Verify Biometric Lock
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button onClick={saveSecurity} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
