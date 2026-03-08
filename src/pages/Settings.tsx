@@ -125,13 +125,22 @@ const Settings = () => {
   };
 
   const saveSecurity = () => {
+    if (appLock && lockPin.length !== 4 && !localStorage.getItem("smk_lockpin")) {
+      toast.error("Please set a 4-digit PIN first");
+      return;
+    }
     localStorage.setItem("smk_applock", String(appLock));
     localStorage.setItem("smk_autolock_min", String(autoLockMin));
     if (appLock && lockPin.length === 4) {
       localStorage.setItem("smk_lockpin", lockPin);
+      // Save email for forgot PIN recovery
+      if (user?.email) {
+        localStorage.setItem("smk_lock_email", user.email);
+      }
     }
     if (!appLock) {
       localStorage.removeItem("smk_lockpin");
+      localStorage.removeItem("smk_lock_email");
     }
     setActiveModal(null);
     toast.success(t("security") + " saved!");
