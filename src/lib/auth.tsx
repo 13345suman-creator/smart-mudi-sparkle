@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const method = getLoginMethod();
     console.log("Login method:", method, "| Capacitor:", isCapacitor(), "| hostname:", window.location.hostname);
 
-    if (useRedirect) {
+    if (method === 'redirect') {
       // For installed apps (PWA/APK/mobile), use redirect — popups get blocked
       try {
         toast.info("Google login এ redirect হচ্ছে...");
