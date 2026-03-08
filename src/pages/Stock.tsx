@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Plus, Search, Package, X, Pencil, Trash2, ScanLine, AlertTriangle, Loader2, ChevronRight, TrendingUp, TrendingDown, BarChart3, Filter } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Plus, Search, Package, X, Pencil, Trash2, ScanLine, AlertTriangle, Loader2, ChevronRight, TrendingUp, TrendingDown, BarChart3, Filter, CheckCircle2 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type Product } from "@/lib/store";
 import { useLanguage } from "@/lib/language";
 import { toast } from "sonner";
 
-const UNITS = ["kg", "gram", "liter", "ml", "pcs"];
+const UNITS = ["kg", "gram", "liter", "ml", "pcs", "pkd"];
 
 const Stock = () => {
   const { products, addProduct, updateProduct, deleteProduct, loading } = useStore();
@@ -16,10 +16,18 @@ const Stock = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
   const [customUnit, setCustomUnit] = useState(false);
+  const [editCustomUnit, setEditCustomUnit] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanTarget, setScanTarget] = useState<"search" | "new" | "edit">("search");
   const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "low" | "out" | "expiring">("all");
+  
+  // Selection mode for long-press delete
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
 
   const getStatus = (p: Product) => {
     if (p.stock === 0) return { label: "Out of Stock", short: "Out", color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20", dot: "bg-destructive" };
@@ -48,9 +56,24 @@ const Stock = () => {
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= (p.lowStockAlert || 5)).length;
   const outOfStockCount = products.filter(p => p.stock === 0).length;
 
+  // Duplicate check
+  const isDuplicate = (name: string, barcode: string, excludeId?: string) => {
+    return products.some(p => {
+      if (excludeId && p.id === excludeId) return false;
+      if (name && p.name.toLowerCase().trim() === name.toLowerCase().trim()) return true;
+      if (barcode && barcode.length > 3 && p.barcode === barcode) return true;
+      return false;
+    });
+  };
+
   const handleAdd = async () => {
     if (!newProduct.name || !newProduct.sellPrice) {
       toast.error("Product name and sell price required");
+      return;
+    }
+    // Check duplicate
+    if (isDuplicate(newProduct.name || "", newProduct.barcode || "")) {
+      toast.error("এই নামে বা barcode এ product আগে থেকেই আছে!");
       return;
     }
     try {
@@ -78,10 +101,16 @@ const Stock = () => {
 
   const handleEdit = async () => {
     if (!editingProduct) return;
+    // Check duplicate (exclude self)
+    if (isDuplicate(editingProduct.name, editingProduct.barcode, editingProduct.id)) {
+      toast.error("এই নামে বা barcode এ অন্য product আগে থেকেই আছে!");
+      return;
+    }
     try {
       await updateProduct({ ...editingProduct });
       setSelectedProduct({ ...editingProduct });
       setEditingProduct(null);
+      setEditCustomUnit(false);
       toast.success("Product updated!");
     } catch (err: any) {
       toast.error(err.message || "Failed to update");
@@ -96,6 +125,62 @@ const Stock = () => {
       toast.success("Product deleted!");
     } catch {
       toast.error("Failed to delete");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      for (const id of ids) {
+        await deleteProduct(id);
+      }
+      toast.success(`${ids.length} টি product delete হয়েছে!`);
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      setBulkDeleteConfirm(false);
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
+
+  // Long press handlers
+  const handlePointerDown = useCallback((productId: string) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      // Vibrate if supported
+      if (navigator.vibrate) navigator.vibrate(50);
+      setSelectionMode(true);
+      setSelectedIds(new Set([productId]));
+    }, 800);
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleProductClick = (p: Product) => {
+    if (longPressTriggered.current) return;
+    if (selectionMode) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(p.id)) next.delete(p.id);
+        else next.add(p.id);
+        if (next.size === 0) setSelectionMode(false);
+        return next;
+      });
+    } else {
+      setSelectedProduct(p);
     }
   };
 
@@ -117,6 +202,9 @@ const Stock = () => {
     setShowScanner(true);
   };
 
+  // Check if editing unit is custom (not in UNITS list)
+  const isEditUnitCustom = editingProduct ? !UNITS.includes(editingProduct.unit) : false;
+
   if (loading) {
     return (
       <div className="px-4 flex items-center justify-center py-20">
@@ -132,17 +220,48 @@ const Stock = () => {
     <div className="px-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-xl font-bold text-foreground">Stock</h1>
-          <p className="text-[10px] text-muted-foreground">{products.length} products</p>
-        </div>
-        <button onClick={() => setShowAdd(true)} className="gradient-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5 glow-primary">
-          <Plus size={16} /> Add
-        </button>
+        {selectionMode ? (
+          <>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X size={20} />
+              </button>
+              <span className="font-display text-lg font-bold text-foreground">{selectedIds.size} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+                  else setSelectedIds(new Set(filtered.map(p => p.id)));
+                }}
+                className="text-xs font-semibold text-primary px-3 py-2 rounded-xl glass-card"
+              >
+                {selectedIds.size === filtered.length ? "Deselect All" : "Select All"}
+              </button>
+              <button 
+                onClick={() => setBulkDeleteConfirm(true)} 
+                disabled={selectedIds.size === 0}
+                className="bg-destructive text-destructive-foreground px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <h1 className="font-display text-xl font-bold text-foreground">Stock</h1>
+              <p className="text-[10px] text-muted-foreground">{products.length} products</p>
+            </div>
+            <button onClick={() => setShowAdd(true)} className="gradient-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5 glow-primary">
+              <Plus size={16} /> Add
+            </button>
+          </>
+        )}
       </div>
 
       {/* Stats Row */}
-      {products.length > 0 && (
+      {products.length > 0 && !selectionMode && (
         <div className="grid grid-cols-3 gap-2">
           <div className="glass-card p-3 rounded-xl text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -178,47 +297,73 @@ const Stock = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
-        {([
-          { id: "all" as const, label: "All", count: products.length },
-          { id: "low" as const, label: "Low Stock", count: lowStockCount },
-          { id: "out" as const, label: "Out", count: outOfStockCount },
-          { id: "expiring" as const, label: "Expiring", count: products.filter(p => { const d = (new Date(p.expiry).getTime() - Date.now()) / 86400000; return p.expiry && d <= 30; }).length },
-        ]).map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setFilterStatus(tab.id)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              filterStatus === tab.id
-                ? "gradient-primary text-primary-foreground"
-                : "glass-card text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-            {tab.count > 0 && (
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${filterStatus === tab.id ? "bg-white/20" : "bg-muted"}`}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {!selectionMode && (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
+          {([
+            { id: "all" as const, label: "All", count: products.length },
+            { id: "low" as const, label: "Low Stock", count: lowStockCount },
+            { id: "out" as const, label: "Out", count: outOfStockCount },
+            { id: "expiring" as const, label: "Expiring", count: products.filter(p => { const d = (new Date(p.expiry).getTime() - Date.now()) / 86400000; return p.expiry && d <= 30; }).length },
+          ]).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                filterStatus === tab.id
+                  ? "gradient-primary text-primary-foreground"
+                  : "glass-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${filterStatus === tab.id ? "bg-white/20" : "bg-muted"}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Product List - Professional */}
+      {/* Selection mode hint */}
+      {!selectionMode && products.length > 0 && (
+        <p className="text-[9px] text-muted-foreground text-center opacity-60">Long press to select & delete multiple</p>
+      )}
+
+      {/* Product List */}
       <div className="space-y-2">
         {filtered.map((p) => {
           const status = getStatus(p);
           const profit = p.sellPrice - p.costPrice;
+          const isSelected = selectedIds.has(p.id);
           return (
             <div
               key={p.id}
-              onClick={() => setSelectedProduct(p)}
-              className="glass-card-hover p-4 flex items-center gap-3 cursor-pointer group"
+              onPointerDown={() => handlePointerDown(p.id)}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerLeave}
+              onContextMenu={e => e.preventDefault()}
+              onClick={() => handleProductClick(p)}
+              className={`glass-card-hover p-4 flex items-center gap-3 cursor-pointer group select-none transition-all ${
+                isSelected ? "ring-2 ring-primary bg-primary/5" : ""
+              }`}
             >
-              {/* Product Icon */}
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${status.bg} border ${status.border}`}>
-                <Package size={20} className={status.color} />
-              </div>
+              {/* Selection checkbox or Product Icon */}
+              {selectionMode ? (
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+                  isSelected ? "bg-primary" : "glass-card border border-border"
+                }`}>
+                  {isSelected ? (
+                    <CheckCircle2 size={22} className="text-primary-foreground" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
+                  )}
+                </div>
+              ) : (
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${status.bg} border ${status.border}`}>
+                  <Package size={20} className={status.color} />
+                </div>
+              )}
               
               {/* Product Info */}
               <div className="flex-1 min-w-0">
@@ -242,7 +387,9 @@ const Stock = () => {
               </div>
 
               {/* Arrow */}
-              <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+              {!selectionMode && (
+                <ChevronRight size={16} className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+              )}
             </div>
           );
         })}
@@ -405,7 +552,7 @@ const Stock = () => {
               <button onClick={() => setDeleteConfirm(selectedProduct)} className="flex-1 py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-destructive/10 transition-colors">
                 <Trash2 size={14} /> Delete
               </button>
-              <button onClick={() => { setEditingProduct({ ...selectedProduct }); }} className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary">
+              <button onClick={() => { setEditingProduct({ ...selectedProduct }); setEditCustomUnit(!UNITS.includes(selectedProduct.unit)); }} className="flex-1 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 glow-primary">
                 <Pencil size={14} /> Edit
               </button>
             </div>
@@ -415,11 +562,11 @@ const Stock = () => {
 
       {/* ===== EDIT PRODUCT MODAL ===== */}
       {editingProduct && (
-        <div className="modal-overlay" onClick={() => setEditingProduct(null)}>
+        <div className="modal-overlay" onClick={() => { setEditingProduct(null); setEditCustomUnit(false); }}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display font-bold text-lg text-foreground">Edit Product</h3>
-              <button onClick={() => setEditingProduct(null)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
+              <button onClick={() => { setEditingProduct(null); setEditCustomUnit(false); }} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
             </div>
 
             <div className="space-y-4">
@@ -465,15 +612,26 @@ const Stock = () => {
                 </div>
               </div>
 
+              {/* Unit selector with custom support */}
               <div>
                 <label className="text-xs font-medium text-foreground mb-1.5 block">Unit</label>
-                <div className="flex flex-wrap gap-2">
-                  {UNITS.map(u => (
-                    <button key={u} type="button" onClick={() => setEditingProduct({ ...editingProduct, unit: u })} className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground" : "glass-card text-muted-foreground"}`}>
-                      {u}
+                {!editCustomUnit ? (
+                  <div className="flex flex-wrap gap-2">
+                    {UNITS.map(u => (
+                      <button key={u} type="button" onClick={() => setEditingProduct({ ...editingProduct, unit: u })} className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground glow-primary" : "glass-card text-muted-foreground hover:text-foreground"}`}>
+                        {u}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => { setEditCustomUnit(true); setEditingProduct({ ...editingProduct, unit: "" }); }} className="px-3 py-2 rounded-xl text-xs font-semibold glass-card text-muted-foreground hover:text-foreground">
+                      Other
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Enter unit..." value={editingProduct.unit || ""} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
+                    <button type="button" onClick={() => { setEditCustomUnit(false); setEditingProduct({ ...editingProduct, unit: "kg" }); }} className="text-xs text-primary px-3 font-semibold">Back</button>
+                  </div>
+                )}
               </div>
 
               <button onClick={handleEdit} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm mt-1 glow-primary flex items-center justify-center gap-2">
@@ -499,6 +657,27 @@ const Stock = () => {
               <div className="flex gap-2 w-full mt-2">
                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold glass-card text-foreground">Cancel</button>
                 <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteConfirm && (
+        <div className="modal-overlay" style={{ zIndex: 200 }} onClick={() => setBulkDeleteConfirm(false)}>
+          <div className="glass-card w-[85%] max-w-sm p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle size={28} className="text-destructive" />
+              </div>
+              <h3 className="font-display font-bold text-lg text-foreground">Delete {selectedIds.size} Products?</h3>
+              <p className="text-sm text-muted-foreground">
+                Selected {selectedIds.size} টি product permanently delete হবে। এটি undo করা যাবে না।
+              </p>
+              <div className="flex gap-2 w-full mt-2">
+                <button onClick={() => setBulkDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold glass-card text-foreground">Cancel</button>
+                <button onClick={handleBulkDelete} className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-destructive text-destructive-foreground">Delete All</button>
               </div>
             </div>
           </div>
