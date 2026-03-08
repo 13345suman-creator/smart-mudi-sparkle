@@ -12,11 +12,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Detect if running in Capacitor/native app or restricted environment
-const isNativeApp = () => {
-  return !!(window as any).Capacitor || 
-         /wv|webview/i.test(navigator.userAgent) ||
-         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+// Detect if running in Capacitor/native app
+const isCapacitorApp = () => {
+  return !!(window as any).Capacitor;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
