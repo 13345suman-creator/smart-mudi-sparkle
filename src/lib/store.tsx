@@ -415,9 +415,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteUdhari = async (id: string) => {
+    const entry = udhariEntries.find(e => e.id === id);
     setUdhariEntries(prev => prev.filter(e => e.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/udhari`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/udhari`, id));
+        if (entry) await updateGlobalStorage(-estimateBytes(entry));
+      } catch (e) { console.warn(e); }
     }
   };
 
