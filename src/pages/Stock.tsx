@@ -463,7 +463,7 @@ const Stock = () => {
 
               {/* Barcode */}
               <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Barcode</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Barcode (optional)</label>
                 <div className="flex gap-2">
                   <input type="text" placeholder="Scan or type" value={newProduct.barcode || ""} onChange={e => setNewProduct({ ...newProduct, barcode: e.target.value })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl font-mono" />
                   <button type="button" onClick={() => openScanner("new")} className="gradient-primary text-primary-foreground px-3 py-2.5 rounded-xl flex items-center gap-1 text-xs font-semibold glow-primary">
