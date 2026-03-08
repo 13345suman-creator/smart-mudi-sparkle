@@ -49,19 +49,11 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     { label: t("pending_udhari"), value: `${currency}${pendingUdhari.toLocaleString()}`, icon: Users, gradient: "gradient-card-purple", change: `${udhariCustomers} ${t("customers")}` },
   ];
 
-  // Check if monthly report is available (at least 1 full month of data)
-  const getFirstBillDate = () => {
-    if (bills.length === 0) return null;
-    const sorted = [...bills].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return new Date(sorted[0].date);
-  };
-  const firstBillDate = getFirstBillDate();
-  const monthlyReportAvailable = (() => {
-    if (!firstBillDate || monthlyBills.length === 0) return false;
-    const diffMs = now.getTime() - firstBillDate.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays >= 30;
-  })();
+  // Check if monthly report is available (last 3 days of month)
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const isMonthEnd = currentDay >= daysInCurrentMonth - 2; // Last 3 days
+  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
 
   // Generate daily chart data for monthly report
   const getDailyChartData = () => {
