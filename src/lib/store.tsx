@@ -437,6 +437,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       settings, updateSettings,
       products, addProduct, updateProduct, deleteProduct,
       loading,
+      storageLimitExceeded, storageMB, showStorageLimitDialog, setShowStorageLimitDialog,
     }}>
       {children}
     </StoreContext.Provider>
