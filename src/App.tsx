@@ -14,6 +14,7 @@ import Stock from "./pages/Stock";
 import Billing from "./pages/Billing";
 import Udhari from "./pages/Udhari";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
