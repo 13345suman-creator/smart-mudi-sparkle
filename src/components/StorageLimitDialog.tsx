@@ -8,7 +8,7 @@ interface StorageLimitDialogProps {
   usageMB: number;
 }
 
-const CONTACT_EMAIL = "smartmudikhana@gmail.com";
+const CONTACT_EMAIL = "13345suman@gmail.com";
 
 const StorageLimitDialog = ({ open, onOpenChange, usageMB }: StorageLimitDialogProps) => {
   return (
