@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash } from "lucide-react";
+import { speakBillPayment, speakNewUdhari } from "@/lib/notifications";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
@@ -259,6 +260,11 @@ const Billing = () => {
     addBill(newBill);
     setLastBill(newBill);
 
+    // Voice notification for payment
+    if (paymentMode !== "udhari") {
+      speakBillPayment(newBill.total, paymentMode);
+    }
+
     // Auto-add to udhari
     if (paymentMode === "udhari") {
       addUdhari({
@@ -271,6 +277,7 @@ const Billing = () => {
         billNo: newBill.billNo,
         payments: [],
       });
+      speakNewUdhari(udhariName, newBill.total);
     }
 
     setShowPayment(false);
@@ -318,11 +325,23 @@ const Billing = () => {
 
   const shareBill = async (bill: CompletedBill) => {
     const text = `🧾 ${bill.billNo}\n📅 ${formatDate(bill.date)}\n🏪 ${settings.shopName}\n\n${bill.items.map(i => `${i.name} × ${i.quantity} ${i.unit} = ₹${Math.round(i.money * 100) / 100}`).join('\n')}\n\n💰 Total: ₹${bill.total}\n💳 Payment: ${bill.paymentMode.toUpperCase()}${bill.upiApp ? ` (${bill.upiApp})` : ''}\n\nThank you! 🙏`;
+    
+    // Always try native share first, with proper fallback
     if (navigator.share) {
-      try { await navigator.share({ title: bill.billNo, text }); } catch { }
-    } else {
-      await navigator.clipboard.writeText(text);
+      try {
+        await navigator.share({ title: bill.billNo, text });
+        return; // Success, stop here
+      } catch (err: any) {
+        // User cancelled or share failed - only fallback to clipboard if it's a real error
+        if (err?.name === 'AbortError') return; // User cancelled, do nothing
+      }
     }
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(text);
+      const { toast } = await import("sonner");
+      toast.success("Copied to clipboard!");
+    } catch {}
   };
 
   // Filter bills by bill ID search

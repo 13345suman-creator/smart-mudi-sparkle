@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle, UserCheck, Trash2, Download, Share2, Clock, AlertTriangle, Users, TrendingDown } from "lucide-react";
-import { useStore, type CompletedBill, type PaidOffCustomer } from "@/lib/store";
+import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle, UserCheck, Trash2, Download, Share2, Clock, AlertTriangle, Users, TrendingDown, FileText } from "lucide-react";
+import { useStore, type CompletedBill, type PaidOffCustomer, type UdhariEntry } from "@/lib/store";
 import { toast } from "sonner";
+import { speakUdhariPayment } from "@/lib/notifications";
 
 const Udhari = () => {
   const { udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, bills } = useStore();
@@ -80,7 +81,11 @@ const Udhari = () => {
 
   const handlePartialPay = () => {
     if (!showPartial || !partialAmount) return;
-    payUdhari(showPartial.id, Number(partialAmount), payMethod);
+    const paidAmount = Number(partialAmount);
+    const remainingAfter = showPartial.amount - paidAmount;
+    payUdhari(showPartial.id, paidAmount, payMethod);
+    // Voice notification
+    speakUdhariPayment(paidAmount, remainingAfter, payMethod);
     setShowPartial(null);
     setPartialAmount("");
     setPayMethod("cash");
@@ -98,45 +103,121 @@ const Udhari = () => {
     setDeleteConfirm(null);
   };
 
+  // Generate professional PDF for udhari customer
+  const generateUdhariPDF = (entry: UdhariEntry | PaidOffCustomer, isCleared: boolean) => {
+    const totalBilled = 'totalBilled' in entry ? entry.totalBilled : ('amount' in entry ? (entry as any).totalBilled || (entry as any).amount : 0);
+    const totalPaid = isCleared ? (entry as PaidOffCustomer).totalPaid : ((entry as UdhariEntry).totalBilled - (entry as UdhariEntry).amount);
+    const remaining = isCleared ? 0 : (entry as UdhariEntry).amount;
+    const payments = entry.payments || [];
+    const shopName = localStorage.getItem("smk_shopname") || "Shop";
+    
+    const paymentRows = payments.map(p => 
+      `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;">${p.date}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;">${p.time || '-'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:600;color:#16a34a;">₹${p.amount.toLocaleString()}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:11px;text-transform:capitalize;">${p.method}</td>
+      </tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Udhari - ${entry.name}</title>
+<style>
+@media print { @page { margin: 10mm; } .no-print { display:none!important; } }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fa;padding:20px}
+.container{max-width:400px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+.header{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:24px;text-align:center}
+.header h1{font-size:14px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:0.7;margin-bottom:4px}
+.header h2{font-size:20px;font-weight:700;margin-bottom:2px}
+.header p{font-size:11px;opacity:0.7}
+.status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:8px}
+.status-pending{background:#fbbf24;color:#92400e}
+.status-cleared{background:#4ade80;color:#14532d}
+.summary{padding:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.stat{text-align:center;padding:12px;background:#f1f5f9;border-radius:10px}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#64748b;font-weight:600}
+.stat-value{font-size:16px;font-weight:800;margin-top:2px}
+.stat-billed .stat-value{color:#1e293b}
+.stat-paid .stat-value{color:#16a34a}
+.stat-remaining .stat-value{color:#dc2626}
+.section{padding:16px 20px}
+.section-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+table{width:100%;border-collapse:collapse}
+th{padding:6px 8px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;border-bottom:2px solid #e2e8f0;text-align:left;font-weight:700}
+th:nth-child(3){text-align:right}
+.footer{text-align:center;padding:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8}
+.btn-row{text-align:center;padding:16px}
+.btn-row button{padding:8px 24px;margin:0 4px;font-size:12px;cursor:pointer;border:1px solid #ccc;background:#f5f5f5;border-radius:8px}
+</style></head><body>
+<div class="container">
+  <div class="header">
+    <h1>${shopName}</h1>
+    <h2>${entry.name}</h2>
+    <p>📱 ${entry.phone}</p>
+    <span class="status ${isCleared ? 'status-cleared' : 'status-pending'}">${isCleared ? '✅ Fully Cleared' : '⏳ Pending'}</span>
+  </div>
+  <div class="summary">
+    <div class="stat stat-billed"><div class="stat-label">Total Billed</div><div class="stat-value">₹${totalBilled.toLocaleString()}</div></div>
+    <div class="stat stat-paid"><div class="stat-label">Total Paid</div><div class="stat-value">₹${totalPaid.toLocaleString()}</div></div>
+    <div class="stat stat-remaining"><div class="stat-label">Remaining</div><div class="stat-value">₹${remaining.toLocaleString()}</div></div>
+  </div>
+  ${payments.length > 0 ? `
+  <div class="section">
+    <div class="section-title">💳 Payment History</div>
+    <table>
+      <thead><tr><th>Date</th><th>Time</th><th style="text-align:right">Amount</th><th>Method</th></tr></thead>
+      <tbody>${paymentRows}</tbody>
+    </table>
+  </div>` : ''}
+  <div class="footer">
+    <p>Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} • ${shopName}</p>
+  </div>
+</div>
+<div class="btn-row no-print">
+  <button onclick="window.print()">🖨️ Print / Save PDF</button>
+  <button onclick="window.close()">✕ Close</button>
+</div>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
+
+  // Share udhari customer details
+  const shareUdhariEntry = async (entry: UdhariEntry | PaidOffCustomer, isCleared: boolean) => {
+    const totalBilled = 'totalBilled' in entry ? entry.totalBilled : 0;
+    const totalPaid = isCleared ? (entry as PaidOffCustomer).totalPaid : (totalBilled - (entry as UdhariEntry).amount);
+    const remaining = isCleared ? 0 : (entry as UdhariEntry).amount;
+    const payments = entry.payments || [];
+    
+    const text = `📋 Udhari ${isCleared ? '✅ Cleared' : '⏳ Pending'}\n\n👤 ${entry.name}\n📱 ${entry.phone}\n\n💰 Total Billed: ₹${totalBilled.toLocaleString()}\n✅ Total Paid: ₹${totalPaid.toLocaleString()}\n${!isCleared ? `⏳ Remaining: ₹${remaining.toLocaleString()}\n` : ''}\n${payments.length > 0 ? `💳 Payments:\n${payments.map(p => `  ₹${p.amount} via ${p.method} on ${p.date}`).join('\n')}` : ''}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Udhari - ${entry.name}`, text });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard!");
+    } catch {
+      toast.error("Share not supported");
+    }
+  };
+
   const handleDownloadPaidOff = (customer: PaidOffCustomer) => {
-    const lines = [
-      `Customer: ${customer.name}`,
-      `Phone: ${customer.phone}`,
-      `Total Billed: ₹${customer.totalBilled}`,
-      `Total Paid: ₹${customer.totalPaid}`,
-      `Cleared: ${customer.clearedDate}`,
-      `\nPayment History:`,
-      ...(customer.payments || []).map(p => `  ₹${p.amount} via ${p.method} on ${p.date} at ${p.time || 'N/A'}`),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${customer.name.replace(/\s+/g, "_")}_udhari_cleared.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Downloaded successfully");
+    generateUdhariPDF(customer, true);
   };
 
   const handleSharePaidOff = async (customer: PaidOffCustomer) => {
-    const text = `Udhari Cleared ✅\nCustomer: ${customer.name}\nPhone: ${customer.phone}\nTotal: ₹${customer.totalBilled}\nPaid: ₹${customer.totalPaid}\nCleared: ${customer.clearedDate}\n\nPayment Details:\n${(customer.payments || []).map(p => `₹${p.amount} via ${p.method} on ${p.date} at ${p.time || 'N/A'}`).join('\n')}`;
-    
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `Udhari - ${customer.name}`, text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard!");
-      }
-    } catch {
-      // Fallback: always try clipboard
-      try {
-        await navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard!");
-      } catch {
-        toast.error("Share not supported on this device");
-      }
-    }
+    await shareUdhariEntry(customer, true);
   };
 
   return (
@@ -223,8 +304,14 @@ const Udhari = () => {
                 <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success">
                   Receive Payment
                 </button>
-                <button onClick={() => setDeleteConfirm({ type: "udhari", id: entry.id, name: entry.name })} className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive">
-                  Delete
+                <button onClick={() => generateUdhariPDF(entry, false)} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary" title="Download PDF">
+                  <FileText size={14} />
+                </button>
+                <button onClick={() => shareUdhariEntry(entry, false)} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-accent text-accent-foreground" title="Share">
+                  <Share2 size={14} />
+                </button>
+                <button onClick={() => setDeleteConfirm({ type: "udhari", id: entry.id, name: entry.name })} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive">
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
