@@ -55,8 +55,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loginWithGoogle = async () => {
     provider.setCustomParameters({ prompt: 'select_account' });
     
-    const useRedirect = isMobileOrPWA();
-    console.log("Login method:", useRedirect ? "redirect" : "popup", "| hostname:", window.location.hostname);
+    const method = getLoginMethod();
+    console.log("Login method:", method, "| Capacitor:", isCapacitor(), "| hostname:", window.location.hostname);
 
     if (useRedirect) {
       // For installed apps (PWA/APK/mobile), use redirect — popups get blocked
