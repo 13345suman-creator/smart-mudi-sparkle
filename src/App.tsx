@@ -54,6 +54,7 @@ const AppContent = () => {
             <Route path="/billing" element={<Billing />} />
             <Route path="/udhari" element={<Udhari />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/login" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
