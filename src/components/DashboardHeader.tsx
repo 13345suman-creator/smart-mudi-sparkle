@@ -1,16 +1,18 @@
 import { Bell, LogOut, LogIn, Cloud, CloudOff, X, Download, AlertTriangle, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useLanguage } from "@/lib/language";
 
 const DashboardHeader = () => {
-  const { user, loginWithGoogle, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { settings, products, udhariEntries, bills } = useStore();
   const { t } = useLanguage();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginLoading] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
   useEffect(() => {
@@ -28,15 +30,8 @@ const DashboardHeader = () => {
     }));
   }, [t]);
 
-  const handleLogin = async () => {
-    setLoginLoading(true);
-    try {
-      await loginWithGoogle();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleLogin = () => {
+    navigate("/login");
   };
 
   const threshold = parseInt(localStorage.getItem("smk_lowstock_threshold") || "10");
