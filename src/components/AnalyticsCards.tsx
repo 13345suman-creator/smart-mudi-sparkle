@@ -635,14 +635,12 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                 )}
                 {selectedStat === 1 && (
                   monthlyReportAvailable ? (
-                    monthlyBills.length > 0 && (
-                      <button onClick={() => generateSalesPDF("monthly")} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                        <Download size={14} /> {t("download_monthly_sales")}
-                      </button>
-                    )
+                    <button onClick={() => generateSalesPDF("monthly")} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 animate-pulse">
+                      <Download size={14} /> {t("download_monthly_sales")}
+                    </button>
                   ) : (
                     <div className="w-full bg-muted/50 border border-border/50 py-3 rounded-xl text-sm text-center text-muted-foreground">
-                      🔒 {t("monthly_pdf_locked") || "Monthly PDF unlocks after 30 days of usage"}
+                      🔒 {t("monthly_pdf_locked") || "Monthly report activates at month end"}
                     </div>
                   )
                 )}
