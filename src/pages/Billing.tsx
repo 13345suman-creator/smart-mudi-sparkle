@@ -408,45 +408,99 @@ const Billing = () => {
 
             {/* Quick Quantity Buttons */}
             <div className="flex gap-1 flex-wrap">
-              {(item.unit === "kg" || item.unit === "gram") && quantityPresets.map(p => (
-                <button
-                  key={p.label}
-                  onClick={() => applyPreset(item.id, p.value)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                    Math.abs(item.quantity - p.value) < 0.001
-                      ? "gradient-primary text-primary-foreground"
-                      : "bg-secondary/50 text-muted-foreground"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-              {(item.unit !== "kg" && item.unit !== "gram") && [0.25, 0.5].map(q => (
-                <button
-                  key={q}
-                  onClick={() => updateQuantity(item.id, q)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                    Math.abs(item.quantity - q) < 0.001
-                      ? "gradient-primary text-primary-foreground"
-                      : "bg-secondary/50 text-muted-foreground"
-                  }`}
-                >
-                  {q}
-                </button>
-              ))}
-              {[1, 2, 3, 5, 10].map(q => (
-                <button
-                  key={q}
-                  onClick={() => updateQuantity(item.id, q)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                    Math.abs(item.quantity - q) < 0.001
-                      ? "gradient-primary text-primary-foreground"
-                      : "bg-secondary/50 text-muted-foreground"
-                  }`}
-                >
-                  {q}
-                </button>
-              ))}
+              {(item.unit === "kg" || item.unit === "gram") ? (
+                <>
+                  {quantityPresets.map(p => (
+                    <button
+                      key={p.label}
+                      onClick={() => applyPreset(item.id, p.value)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - p.value) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                  {[1, 2, 3, 5, 10].map(q => (
+                    <button
+                      key={q}
+                      onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </>
+              ) : (item.unit === "liter" || item.unit === "ml") ? (
+                <>
+                  {[
+                    { label: "100ml", value: 0.1 },
+                    { label: "250ml", value: 0.25 },
+                    { label: "500ml", value: 0.5 },
+                    { label: "750ml", value: 0.75 },
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      onClick={() => applyPreset(item.id, p.value)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - p.value) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                  {[1, 2, 3, 5, 10].map(q => (
+                    <button
+                      key={q}
+                      onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {[0.25, 0.5, 0.75].map(q => (
+                    <button
+                      key={q}
+                      onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                  {[1, 2, 3, 5, 10].map(q => (
+                    <button
+                      key={q}
+                      onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001
+                          ? "gradient-primary text-primary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
