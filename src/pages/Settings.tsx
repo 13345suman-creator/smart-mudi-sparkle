@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
@@ -30,7 +30,7 @@ const Settings = () => {
   const [shopName, setShopName] = useState(settings.shopName);
   const [shopAddress, setShopAddress] = useState(settings.shopAddress);
   const [shopGST, setShopGST] = useState(settings.shopGST);
-  const [upiIds, setUpiIds] = useState<string[]>([...settings.upiIds]);
+  
 
   // Appearance
   const [currentTheme, setCurrentTheme] = useState(() => {
@@ -65,7 +65,7 @@ const Settings = () => {
     setShopName(settings.shopName);
     setShopAddress(settings.shopAddress);
     setShopGST(settings.shopGST);
-    setUpiIds([...settings.upiIds]);
+    
   }, [settings]);
 
   useEffect(() => {
@@ -99,11 +99,6 @@ const Settings = () => {
     toast.success(t("save") + " ✅");
   };
 
-  const saveUpiIds = () => {
-    updateSettings({ upiIds });
-    setActiveModal(null);
-    toast.success("UPI IDs saved!");
-  };
 
   const applyTheme = (themeId: string) => {
     setCurrentTheme(themeId);
@@ -240,7 +235,7 @@ const Settings = () => {
 
   const settingsItems = [
     { icon: Store, label: t("shop_details"), desc: `${settings.shopName}`, action: () => setActiveModal("shop") },
-    { icon: Smartphone, label: t("upi_settings"), desc: `${settings.upiIds.filter(u => u).length} UPI IDs`, action: () => setActiveModal("upi") },
+    
     { icon: Shield, label: t("security"), desc: appLock ? "PIN Lock Active" : "Configure", action: () => setActiveModal("security") },
     { icon: Bell, label: t("notifications"), desc: "Alerts & sound", action: () => setActiveModal("notifications") },
     { icon: Palette, label: t("appearance"), desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
@@ -253,7 +248,7 @@ const Settings = () => {
 
     const titles: Record<string, string> = {
       shop: t("shop_details"),
-      upi: t("upi_settings"),
+      
       security: t("security"),
       notifications: t("notifications"),
       appearance: t("appearance"),
@@ -288,21 +283,6 @@ const Settings = () => {
             </div>
           )}
 
-          {/* UPI Settings */}
-          {activeModal === "upi" && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Add up to 3 UPI IDs</p>
-              {upiIds.map((upi, i) => (
-                <div key={i}>
-                  <label className="text-xs text-muted-foreground mb-1 block">UPI ID {i + 1}</label>
-                  <input value={upi} onChange={e => { const next = [...upiIds]; next[i] = e.target.value; setUpiIds(next); }} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" placeholder={`e.g. shop@${["paytm", "gpay", "bharatpe"][i]}`} />
-                </div>
-              ))}
-              <button onClick={saveUpiIds} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> {t("save")}
-              </button>
-            </div>
-          )}
 
           {/* Security - PIN Only */}
           {activeModal === "security" && (

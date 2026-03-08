@@ -49,19 +49,11 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     { label: t("pending_udhari"), value: `${currency}${pendingUdhari.toLocaleString()}`, icon: Users, gradient: "gradient-card-purple", change: `${udhariCustomers} ${t("customers")}` },
   ];
 
-  // Check if monthly report is available (at least 1 full month of data)
-  const getFirstBillDate = () => {
-    if (bills.length === 0) return null;
-    const sorted = [...bills].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return new Date(sorted[0].date);
-  };
-  const firstBillDate = getFirstBillDate();
-  const monthlyReportAvailable = (() => {
-    if (!firstBillDate || monthlyBills.length === 0) return false;
-    const diffMs = now.getTime() - firstBillDate.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays >= 30;
-  })();
+  // Check if monthly report is available (last 3 days of month)
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const isMonthEnd = currentDay >= daysInCurrentMonth - 2; // Last 3 days
+  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
 
   // Generate daily chart data for monthly report
   const getDailyChartData = () => {
@@ -594,10 +586,10 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                     <Download size={10} /> PDF
                   </span>
                 )}
-                {i === 1 && monthlyReportAvailable && monthlyBills.length > 0 && (
+                {i === 1 && monthlyReportAvailable && (
                   <span
                     onClick={(e) => { e.stopPropagation(); generateSalesPDF("monthly"); }}
-                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors animate-pulse"
                   >
                     <Download size={10} /> PDF
                   </span>
@@ -643,14 +635,12 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                 )}
                 {selectedStat === 1 && (
                   monthlyReportAvailable ? (
-                    monthlyBills.length > 0 && (
-                      <button onClick={() => generateSalesPDF("monthly")} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                        <Download size={14} /> {t("download_monthly_sales")}
-                      </button>
-                    )
+                    <button onClick={() => generateSalesPDF("monthly")} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 animate-pulse">
+                      <Download size={14} /> {t("download_monthly_sales")}
+                    </button>
                   ) : (
                     <div className="w-full bg-muted/50 border border-border/50 py-3 rounded-xl text-sm text-center text-muted-foreground">
-                      🔒 {t("monthly_pdf_locked") || "Monthly PDF unlocks after 30 days of usage"}
+                      🔒 {t("monthly_pdf_locked") || "Monthly report activates at month end"}
                     </div>
                   )
                 )}
