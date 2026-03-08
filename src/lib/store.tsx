@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
+import { notifyBill, notifyUdhari, notifyLowStock } from "./notifications";
 import { useAuth } from "./auth";
 import { db } from "./firebase";
 import {
@@ -267,6 +268,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const addBill = async (bill: CompletedBill) => {
     setBills(prev => [bill, ...prev]);
+    const currency = localStorage.getItem("smk_currency") || "₹";
+    notifyBill(bill.billNo, bill.total, currency);
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill); } catch (e) { console.warn("Firestore write failed, saved locally:", e); }
     }
@@ -280,16 +283,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addUdhari = async (entry: UdhariEntry) => {
+    const currency = localStorage.getItem("smk_currency") || "₹";
     const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
     const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
     if (existing) {
       const updated = { ...existing, amount: existing.amount + entryWithDefaults.amount, totalBilled: existing.totalBilled + entryWithDefaults.amount };
       setUdhariEntries(prev => prev.map(e => e.id === existing.id ? updated : e));
+      notifyUdhari(entry.name, entryWithDefaults.amount, currency);
       if (isOnline) {
         try { await updateDoc(doc(db, `users/${uid}/udhari`, existing.id), { amount: updated.amount, totalBilled: updated.totalBilled }); } catch (e) { console.warn(e); }
       }
     } else {
       setUdhariEntries(prev => [...prev, entryWithDefaults]);
+      notifyUdhari(entry.name, entryWithDefaults.amount, currency);
       if (isOnline) {
         try { await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults); } catch (e) { console.warn(e); }
       }
@@ -374,6 +380,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProduct = async (product: Product) => {
     setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+    // Check low stock
+    const threshold = parseInt(localStorage.getItem("smk_lowstock_threshold") || "10");
+    if (product.stock > 0 && product.stock <= threshold) {
+      notifyLowStock(product.name, product.stock);
+    }
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/products`, product.id), product); } catch (e) { console.warn(e); }
     }

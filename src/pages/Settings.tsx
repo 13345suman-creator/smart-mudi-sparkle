@@ -112,16 +112,13 @@ const Settings = () => {
     toast.success(`Theme: ${THEMES.find(t => t.id === themeId)?.name}`);
   };
 
-  const saveNotifications = () => {
-    localStorage.setItem("smk_notif_bill", String(billNotif));
-    localStorage.setItem("smk_notif_lowstock", String(lowStockNotif));
-    localStorage.setItem("smk_notif_udhari", String(udhariNotif));
-    localStorage.setItem("smk_sound", String(soundEnabled));
-    if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
+  const toggleNotifSetting = (key: string, value: boolean, setter: (v: boolean) => void) => {
+    setter(value);
+    localStorage.setItem(key, String(value));
+    if (value && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-    setActiveModal(null);
-    toast.success(t("notifications") + " saved!");
+    toast.success(value ? "Enabled ✅" : "Disabled ❌");
   };
 
   const saveSecurity = () => {
@@ -400,10 +397,10 @@ const Settings = () => {
           {activeModal === "notifications" && (
             <div className="space-y-3">
               {[
-                { label: "Bill Notifications", desc: "Alert on new bill", value: billNotif, set: setBillNotif, icon: BellRing },
-                { label: "Low Stock Alerts", desc: "Notify when stock is low", value: lowStockNotif, set: setLowStockNotif, icon: AlertTriangle },
-                { label: "Udhari Reminders", desc: "Payment due reminders", value: udhariNotif, set: setUdhariNotif, icon: Bell },
-                { label: "Sound Effects", desc: "Play sounds on actions", value: soundEnabled, set: setSoundEnabled, icon: soundEnabled ? Volume2 : VolumeX },
+                { label: "Bill Notifications", desc: "Alert on new bill", value: billNotif, set: setBillNotif, key: "smk_notif_bill", icon: BellRing },
+                { label: "Low Stock Alerts", desc: "Notify when stock is low", value: lowStockNotif, set: setLowStockNotif, key: "smk_notif_lowstock", icon: AlertTriangle },
+                { label: "Udhari Reminders", desc: "Payment due reminders", value: udhariNotif, set: setUdhariNotif, key: "smk_notif_udhari", icon: Bell },
+                { label: "Sound Effects", desc: "Play sounds on actions", value: soundEnabled, set: setSoundEnabled, key: "smk_sound", icon: soundEnabled ? Volume2 : VolumeX },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between glass-card p-4 rounded-xl">
                   <div className="flex items-center gap-3">
@@ -413,12 +410,10 @@ const Settings = () => {
                       <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                     </div>
                   </div>
-                  <ToggleSwitch value={item.value} onChange={item.set} />
+                  <ToggleSwitch value={item.value} onChange={(v) => toggleNotifSetting(item.key, v, item.set)} />
                 </div>
               ))}
-              <button onClick={saveNotifications} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> {t("save")}
-              </button>
+              <p className="text-[10px] text-muted-foreground text-center pt-1">Changes save automatically</p>
             </div>
           )}
 
