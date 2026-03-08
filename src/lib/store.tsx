@@ -11,6 +11,8 @@ import {
   updateDoc,
   writeBatch,
   getDocs,
+  getDoc,
+  increment,
 } from "firebase/firestore";
 
 const STORAGE_LIMIT_MB = 900;
