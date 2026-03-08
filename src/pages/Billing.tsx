@@ -402,24 +402,35 @@ const Billing = () => {
               </button>
             </div>
 
-            {/* Quantity Presets */}
-            {(item.unit === "kg" || item.unit === "g") && (
-              <div className="flex gap-1.5">
-                {quantityPresets.map(p => (
-                  <button
-                    key={p.label}
-                    onClick={() => applyPreset(item.id, p.value)}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
-                      Math.abs(item.quantity - p.value) < 0.001
-                        ? "gradient-primary text-primary-foreground glow-primary"
-                        : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Quick Quantity Buttons */}
+            <div className="flex gap-1 flex-wrap">
+              {(item.unit === "kg" || item.unit === "gram") && quantityPresets.map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => applyPreset(item.id, p.value)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    Math.abs(item.quantity - p.value) < 0.001
+                      ? "gradient-primary text-primary-foreground"
+                      : "bg-secondary/50 text-muted-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {[1, 2, 3, 5, 10].map(q => (
+                <button
+                  key={q}
+                  onClick={() => updateQuantity(item.id, q)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    Math.abs(item.quantity - q) < 0.001
+                      ? "gradient-primary text-primary-foreground"
+                      : "bg-secondary/50 text-muted-foreground"
+                  }`}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 flex-1">
