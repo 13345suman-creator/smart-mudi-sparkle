@@ -164,6 +164,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<ShopSettings>(() => loadLocal(LS_KEYS.settings, defaultSettings));
   const [products, setProducts] = useState<Product[]>(() => loadLocal(LS_KEYS.products, []));
   const [loading, setLoading] = useState(false);
+  const [showStorageLimitDialog, setShowStorageLimitDialog] = useState(false);
+
+  const storageMB = estimateStorageMB(bills, udhariEntries, paidOffCustomers, products, settings);
+  const storageLimitExceeded = storageMB >= STORAGE_LIMIT_MB;
+
+  const checkStorageLimit = (): boolean => {
+    if (storageLimitExceeded) {
+      setShowStorageLimitDialog(true);
+      return true;
+    }
+    return false;
+  };
   
   // Track whether we're listening to Firestore to prevent local saves from overwriting
   const firestoreActiveRef = useRef(false);
