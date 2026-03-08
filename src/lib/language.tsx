@@ -103,6 +103,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "download_today_sales": { bn: "আজকের বিক্রি PDF ডাউনলোড", hi: "आज की बिक्री PDF डाउनलोड", en: "Download Today Sales PDF" },
   "download_monthly_sales": { bn: "মাসিক বিক্রি PDF ডাউনলোড", hi: "मासिक बिक्री PDF डाउनलोड", en: "Download Monthly Sales PDF" },
   "sales_report": { bn: "বিক্রি রিপোর্ট", hi: "बिक्री रिपोर्ट", en: "Sales Report" },
+  "monthly_pdf_locked": { bn: "মাসিক PDF ৩০ দিন ব্যবহারের পর আনলক হবে", hi: "मासिक PDF 30 दिन उपयोग के बाद अनलॉक होगा", en: "Monthly PDF unlocks after 30 days of usage" },
 
   // Fingerprint
   "fingerprint_saved": { bn: "ফিঙ্গারপ্রিন্ট সংরক্ষিত", hi: "फिंगरप्रिंट सहेजा गया", en: "Fingerprint saved" },
