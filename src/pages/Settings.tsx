@@ -235,7 +235,7 @@ const Settings = () => {
 
   const settingsItems = [
     { icon: Store, label: t("shop_details"), desc: `${settings.shopName}`, action: () => setActiveModal("shop") },
-    { icon: Smartphone, label: t("upi_settings"), desc: `${settings.upiIds.filter(u => u).length} UPI IDs`, action: () => setActiveModal("upi") },
+    
     { icon: Shield, label: t("security"), desc: appLock ? "PIN Lock Active" : "Configure", action: () => setActiveModal("security") },
     { icon: Bell, label: t("notifications"), desc: "Alerts & sound", action: () => setActiveModal("notifications") },
     { icon: Palette, label: t("appearance"), desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
