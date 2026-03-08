@@ -12,9 +12,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Detect if running in Capacitor/native app
-const isCapacitorApp = () => {
-  return !!(window as any).Capacitor;
+// Detect mobile environment (PWA, Capacitor, or mobile browser)
+const isMobileOrPWA = () => {
+  const isCapacitor = !!(window as any).Capacitor;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+  const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return isCapacitor || isStandalone || isMobile;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -48,21 +51,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       provider.setCustomParameters({ prompt: 'select_account' });
       
-      // Always use popup - works in both browser and Capacitor WebView
-      // signInWithRedirect does NOT work in Capacitor/WebView environments
+      if (isMobileOrPWA()) {
+        // Mobile/PWA: use redirect (popup gets blocked or lost)
+        console.log("Mobile detected, using redirect login");
+        await signInWithRedirect(auth, provider);
+        return; // redirect will navigate away, result handled in useEffect
+      }
+      
+      // Desktop: use popup
       try {
         const result = await signInWithPopup(auth, provider);
         console.log("Logged in:", result.user);
         toast.success(`Welcome, ${result.user.displayName}!`);
       } catch (popupError: any) {
         if (popupError.code === "auth/popup-blocked") {
-          // Only use redirect as absolute last resort (won't work in APK)
-          if (!isCapacitorApp()) {
-            toast.info("Popup blocked. Redirecting...");
-            await signInWithRedirect(auth, provider);
-          } else {
-            toast.error("Please allow popups for Google login to work.");
-          }
+          toast.info("Popup blocked. Redirecting...");
+          await signInWithRedirect(auth, provider);
         } else if (popupError.code === "auth/unauthorized-domain") {
           toast.error("Domain not authorized! Add this domain to Firebase Console → Authentication → Authorized domains.", { duration: 8000 });
           throw popupError;
