@@ -304,8 +304,14 @@ th:nth-child(3){text-align:right}
                 <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success">
                   Receive Payment
                 </button>
-                <button onClick={() => setDeleteConfirm({ type: "udhari", id: entry.id, name: entry.name })} className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive">
-                  Delete
+                <button onClick={() => generateUdhariPDF(entry, false)} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary" title="Download PDF">
+                  <FileText size={14} />
+                </button>
+                <button onClick={() => shareUdhariEntry(entry, false)} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-accent text-accent-foreground" title="Share">
+                  <Share2 size={14} />
+                </button>
+                <button onClick={() => setDeleteConfirm({ type: "udhari", id: entry.id, name: entry.name })} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive">
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
