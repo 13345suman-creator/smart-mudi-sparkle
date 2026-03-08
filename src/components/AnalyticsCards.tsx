@@ -586,10 +586,10 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                     <Download size={10} /> PDF
                   </span>
                 )}
-                {i === 1 && monthlyReportAvailable && monthlyBills.length > 0 && (
+                {i === 1 && monthlyReportAvailable && (
                   <span
                     onClick={(e) => { e.stopPropagation(); generateSalesPDF("monthly"); }}
-                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors animate-pulse"
                   >
                     <Download size={10} /> PDF
                   </span>
