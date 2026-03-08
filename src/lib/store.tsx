@@ -406,6 +406,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addProduct = async (product: Product) => {
+    if (checkStorageLimit()) return;
     setProducts(prev => [...prev, product]);
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/products`, product.id), product); } catch (e) { console.warn(e); }
