@@ -260,6 +260,11 @@ const Billing = () => {
     addBill(newBill);
     setLastBill(newBill);
 
+    // Voice notification for payment
+    if (paymentMode !== "udhari") {
+      speakBillPayment(newBill.total, paymentMode);
+    }
+
     // Auto-add to udhari
     if (paymentMode === "udhari") {
       addUdhari({
@@ -272,6 +277,7 @@ const Billing = () => {
         billNo: newBill.billNo,
         payments: [],
       });
+      speakNewUdhari(udhariName, newBill.total);
     }
 
     setShowPayment(false);
