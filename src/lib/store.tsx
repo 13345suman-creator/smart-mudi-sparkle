@@ -199,6 +199,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => { saveLocal(LS_KEYS.settings, settings); }, [settings]);
   useEffect(() => { saveLocal(LS_KEYS.products, products); }, [products]);
 
+  // Listen to global storage counter (works for all users)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, GLOBAL_STORAGE_DOC), (snap) => {
+      if (snap.exists()) {
+        setGlobalStorageBytes(snap.data().totalBytes || 0);
+      }
+    }, (err) => {
+      console.warn("Global storage listener error:", err.message);
+    });
+    return () => unsub();
+  }, []);
+
   // Cleanup all Firestore listeners
   const cleanupListeners = useCallback(() => {
     unsubsRef.current.forEach(u => u());
