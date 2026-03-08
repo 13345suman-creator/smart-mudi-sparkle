@@ -283,21 +283,6 @@ const Settings = () => {
             </div>
           )}
 
-          {/* UPI Settings */}
-          {activeModal === "upi" && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">Add up to 3 UPI IDs</p>
-              {upiIds.map((upi, i) => (
-                <div key={i}>
-                  <label className="text-xs text-muted-foreground mb-1 block">UPI ID {i + 1}</label>
-                  <input value={upi} onChange={e => { const next = [...upiIds]; next[i] = e.target.value; setUpiIds(next); }} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" placeholder={`e.g. shop@${["paytm", "gpay", "bharatpe"][i]}`} />
-                </div>
-              ))}
-              <button onClick={saveUpiIds} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                <Save size={14} /> {t("save")}
-              </button>
-            </div>
-          )}
 
           {/* Security - PIN Only */}
           {activeModal === "security" && (
