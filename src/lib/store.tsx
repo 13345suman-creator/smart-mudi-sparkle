@@ -316,6 +316,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addUdhari = async (entry: UdhariEntry) => {
+    if (checkStorageLimit()) return;
     const currency = localStorage.getItem("smk_currency") || "₹";
     const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
     const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
