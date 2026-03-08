@@ -120,6 +120,10 @@ interface StoreContextType {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
   loading: boolean;
+  storageLimitExceeded: boolean;
+  storageMB: number;
+  showStorageLimitDialog: boolean;
+  setShowStorageLimitDialog: (show: boolean) => void;
 }
 
 const defaultSettings: ShopSettings = {
