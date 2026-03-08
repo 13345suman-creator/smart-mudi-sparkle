@@ -6,7 +6,8 @@ import { useStore } from "@/lib/store";
 import { useLanguage } from "@/lib/language";
 
 const DashboardHeader = () => {
-  const { user, loginWithGoogle, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { settings, products, udhariEntries, bills } = useStore();
   const { t } = useLanguage();
   const [greeting, setGreeting] = useState("");
