@@ -175,8 +175,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>(() => loadLocal(LS_KEYS.products, []));
   const [loading, setLoading] = useState(false);
   const [showStorageLimitDialog, setShowStorageLimitDialog] = useState(false);
+  const [globalStorageBytes, setGlobalStorageBytes] = useState(0);
 
-  const storageMB = estimateStorageMB(bills, udhariEntries, paidOffCustomers, products, settings);
+  const storageMB = globalStorageBytes / (1024 * 1024);
   const storageLimitExceeded = storageMB >= STORAGE_LIMIT_MB;
 
   const checkStorageLimit = (): boolean => {
