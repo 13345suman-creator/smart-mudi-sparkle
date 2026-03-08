@@ -564,134 +564,104 @@ const Stock = () => {
       {editingProduct && (
         <div className="modal-overlay" onClick={() => { setEditingProduct(null); setEditCustomUnit(false); }}>
           <div className="glass-card w-[92%] max-w-md animate-slide-up max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            {/* Professional Header with gradient */}
-            <div className="p-5 pb-3 border-b border-border/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${getStatus(editingProduct).bg} border ${getStatus(editingProduct).border}`}>
-                    <Pencil size={18} className={getStatus(editingProduct).color} />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-bold text-lg text-foreground">Edit Product</h3>
-                    <p className="text-[10px] text-muted-foreground">{editingProduct.name}</p>
-                  </div>
-                </div>
-                <button onClick={() => { setEditingProduct(null); setEditCustomUnit(false); }} className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
+            {/* Compact Header */}
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pencil size={14} className="text-primary" />
+                <h3 className="font-display font-bold text-base text-foreground">Edit Product</h3>
               </div>
+              <button onClick={() => { setEditingProduct(null); setEditCustomUnit(false); }} className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><X size={14} /></button>
             </div>
 
-            <div className="p-5 space-y-5">
-              {/* Product Name */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">Product Name</label>
-                <input type="text" value={editingProduct.name || ""} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} className="w-full glass-card px-4 py-3 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl font-medium" />
-              </div>
+            <div className="px-4 pb-4 space-y-3">
+              {/* Name */}
+              <input type="text" value={editingProduct.name || ""} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl font-medium" placeholder="Product Name" />
 
-              {/* Price Section */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">💰 Pricing</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="glass-card p-3 rounded-xl space-y-1.5">
-                    <p className="text-[9px] text-muted-foreground font-medium">Cost Price</p>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">₹</span>
-                      <input type="number" value={editingProduct.costPrice || ""} onChange={e => setEditingProduct({ ...editingProduct, costPrice: Number(e.target.value) })} className="w-full bg-transparent text-base font-bold text-foreground outline-none" />
-                    </div>
-                  </div>
-                  <div className="glass-card p-3 rounded-xl space-y-1.5 border border-primary/20">
-                    <p className="text-[9px] text-primary font-medium">Sell Price</p>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-primary">₹</span>
-                      <input type="number" value={editingProduct.sellPrice || ""} onChange={e => setEditingProduct({ ...editingProduct, sellPrice: Number(e.target.value) })} className="w-full bg-transparent text-base font-bold text-foreground outline-none" />
-                    </div>
-                  </div>
+              {/* Price Row - Compact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="glass-card px-3 py-2 rounded-xl">
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Cost ₹</p>
+                  <input type="number" value={editingProduct.costPrice || ""} onChange={e => setEditingProduct({ ...editingProduct, costPrice: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold text-foreground outline-none" />
                 </div>
-                {editingProduct.sellPrice > editingProduct.costPrice && (
-                  <div className="flex items-center justify-center gap-1.5 mt-2 py-1.5 rounded-lg bg-[hsl(var(--success))]/5">
-                    <TrendingUp size={12} className="text-[hsl(var(--success))]" />
-                    <span className="text-[10px] font-bold text-[hsl(var(--success))]">Profit: ₹{editingProduct.sellPrice - editingProduct.costPrice}/unit</span>
-                  </div>
-                )}
+                <div className="glass-card px-3 py-2 rounded-xl border border-primary/20">
+                  <p className="text-[9px] text-primary mb-0.5">Sell ₹</p>
+                  <input type="number" value={editingProduct.sellPrice || ""} onChange={e => setEditingProduct({ ...editingProduct, sellPrice: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold text-foreground outline-none" />
+                </div>
               </div>
+              {editingProduct.sellPrice > editingProduct.costPrice && (
+                <div className="flex items-center justify-center gap-1 py-1 rounded-lg bg-[hsl(var(--success))]/5">
+                  <TrendingUp size={10} className="text-[hsl(var(--success))]" />
+                  <span className="text-[10px] font-bold text-[hsl(var(--success))]">Profit: ₹{editingProduct.sellPrice - editingProduct.costPrice}/unit</span>
+                </div>
+              )}
 
-              {/* Stock Section */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">📦 Stock Quantity</label>
-                <div className="glass-card p-3 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) - 1) })} className="w-11 h-11 rounded-xl bg-destructive/10 flex items-center justify-center text-lg font-bold text-destructive hover:bg-destructive/20 transition-colors active:scale-95">−</button>
-                    <div className="flex-1 text-center">
-                      <input type="number" value={editingProduct.stock || ""} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} className="w-full text-center text-2xl font-display font-black text-foreground bg-transparent outline-none" />
-                      <p className="text-[9px] text-muted-foreground mt-0.5">{editingProduct.unit}</p>
-                    </div>
-                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: (editingProduct.stock || 0) + 1 })} className="w-11 h-11 rounded-xl bg-[hsl(var(--success))]/10 flex items-center justify-center text-lg font-bold text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/20 transition-colors active:scale-95">+</button>
-                  </div>
-                  {/* Quick adjust */}
-                  <div className="grid grid-cols-6 gap-1.5 mt-3 pt-3 border-t border-border/50">
-                    {[-10, -5, -1, 1, 5, 10].map(v => (
-                      <button key={v} type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) + v) })} className={`py-2 rounded-lg text-[11px] font-bold transition-all active:scale-95 ${v > 0 ? "bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/20" : "bg-destructive/10 text-destructive hover:bg-destructive/20"}`}>
-                        {v > 0 ? `+${v}` : v}
-                      </button>
-                    ))}
-                  </div>
+              {/* Stock - Compact inline */}
+              <div className="glass-card px-3 py-2.5 rounded-xl">
+                <p className="text-[9px] text-muted-foreground mb-1.5">📦 Stock</p>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) - 1) })} className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center text-sm font-bold text-destructive active:scale-95">−</button>
+                  <input type="number" value={editingProduct.stock || ""} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} className="flex-1 text-center text-lg font-display font-black text-foreground bg-transparent outline-none" />
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: (editingProduct.stock || 0) + 1 })} className="w-8 h-8 rounded-lg bg-[hsl(var(--success))]/10 flex items-center justify-center text-sm font-bold text-[hsl(var(--success))] active:scale-95">+</button>
+                </div>
+                <div className="grid grid-cols-6 gap-1 mt-2 pt-2 border-t border-border/30">
+                  {[-10, -5, -1, 1, 5, 10].map(v => (
+                    <button key={v} type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) + v) })} className={`py-1 rounded text-[10px] font-bold active:scale-95 ${v > 0 ? "bg-[hsl(var(--success))]/10 text-[hsl(var(--success))]" : "bg-destructive/10 text-destructive"}`}>
+                      {v > 0 ? `+${v}` : v}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Low Alert */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-                  <AlertTriangle size={10} className="text-warning" /> Low Stock Alert
-                </label>
-                <div className="glass-card p-3 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: Math.max(0, (editingProduct.lowStockAlert || 0) - 1) })} className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted transition-colors">−</button>
-                    <input type="number" value={editingProduct.lowStockAlert || ""} onChange={e => setEditingProduct({ ...editingProduct, lowStockAlert: Number(e.target.value) })} className="flex-1 text-center text-lg font-bold text-foreground bg-transparent outline-none" />
-                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: (editingProduct.lowStockAlert || 0) + 1 })} className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted transition-colors">+</button>
-                  </div>
+              {/* Low Alert - Inline compact */}
+              <div className="glass-card px-3 py-2.5 rounded-xl flex items-center gap-2">
+                <AlertTriangle size={12} className="text-warning flex-shrink-0" />
+                <span className="text-[10px] text-muted-foreground flex-shrink-0">Low Alert</span>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: Math.max(0, (editingProduct.lowStockAlert || 0) - 1) })} className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-xs font-bold text-foreground">−</button>
+                  <input type="number" value={editingProduct.lowStockAlert || ""} onChange={e => setEditingProduct({ ...editingProduct, lowStockAlert: Number(e.target.value) })} className="w-12 text-center text-sm font-bold text-foreground bg-transparent outline-none" />
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: (editingProduct.lowStockAlert || 0) + 1 })} className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center text-xs font-bold text-foreground">+</button>
                 </div>
               </div>
 
-              {/* Unit selector */}
+              {/* Unit - Compact chips */}
               <div>
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">📏 Unit</label>
+                <p className="text-[9px] text-muted-foreground mb-1.5">📏 Unit</p>
                 {!editCustomUnit ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {UNITS.map(u => (
-                      <button key={u} type="button" onClick={() => setEditingProduct({ ...editingProduct, unit: u })} className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground glow-primary shadow-lg" : "glass-card text-muted-foreground hover:text-foreground hover:border-primary/30"}`}>
+                      <button key={u} type="button" onClick={() => setEditingProduct({ ...editingProduct, unit: u })} className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${editingProduct.unit === u ? "gradient-primary text-primary-foreground" : "glass-card text-muted-foreground"}`}>
                         {u}
                       </button>
                     ))}
-                    <button type="button" onClick={() => { setEditCustomUnit(true); setEditingProduct({ ...editingProduct, unit: "" }); }} className="px-4 py-2.5 rounded-xl text-xs font-semibold glass-card text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/30">
-                      ✏️ Custom
+                    <button type="button" onClick={() => { setEditCustomUnit(true); setEditingProduct({ ...editingProduct, unit: "" }); }} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold glass-card text-muted-foreground border border-dashed border-muted-foreground/30">
+                      Other
                     </button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <input type="text" placeholder="Type custom unit..." value={editingProduct.unit || ""} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value })} className="flex-1 glass-card px-4 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" autoFocus />
-                    <button type="button" onClick={() => { setEditCustomUnit(false); setEditingProduct({ ...editingProduct, unit: "kg" }); }} className="px-3 py-2.5 rounded-xl text-xs font-semibold glass-card text-primary hover:bg-primary/5">← Back</button>
+                    <input type="text" placeholder="Custom unit..." value={editingProduct.unit || ""} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value })} className="flex-1 glass-card px-3 py-2 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" autoFocus />
+                    <button type="button" onClick={() => { setEditCustomUnit(false); setEditingProduct({ ...editingProduct, unit: "kg" }); }} className="text-[11px] text-primary px-2 font-semibold">Back</button>
                   </div>
                 )}
               </div>
 
-              {/* Expiry & Barcode */}
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">📅 Expiry Date</label>
-                  <input type="date" value={editingProduct.expiry || ""} onChange={e => setEditingProduct({ ...editingProduct, expiry: e.target.value })} className="w-full glass-card px-4 py-3 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
+              {/* Expiry & Barcode - Compact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="glass-card px-3 py-2 rounded-xl">
+                  <p className="text-[9px] text-muted-foreground mb-0.5">📅 Expiry</p>
+                  <input type="date" value={editingProduct.expiry || ""} onChange={e => setEditingProduct({ ...editingProduct, expiry: e.target.value })} className="w-full bg-transparent text-xs text-foreground outline-none" />
                 </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2 block">📊 Barcode</label>
-                  <div className="flex gap-2">
-                    <input type="text" value={editingProduct.barcode || ""} onChange={e => setEditingProduct({ ...editingProduct, barcode: e.target.value })} className="flex-1 glass-card px-4 py-3 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl font-mono tracking-wider" />
-                    <button type="button" onClick={() => openScanner("edit")} className="gradient-primary text-primary-foreground px-4 py-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold glow-primary">
-                      <ScanLine size={14} /> Scan
-                    </button>
+                <div className="glass-card px-3 py-2 rounded-xl">
+                  <p className="text-[9px] text-muted-foreground mb-0.5">📊 Barcode</p>
+                  <div className="flex items-center gap-1">
+                    <input type="text" value={editingProduct.barcode || ""} onChange={e => setEditingProduct({ ...editingProduct, barcode: e.target.value })} className="w-full bg-transparent text-xs text-foreground outline-none font-mono" placeholder="—" />
+                    <button type="button" onClick={() => openScanner("edit")} className="text-primary flex-shrink-0"><ScanLine size={14} /></button>
                   </div>
                 </div>
               </div>
 
-              {/* Save Button */}
-              <button onClick={handleEdit} className="w-full gradient-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm glow-primary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+              {/* Save */}
+              <button onClick={handleEdit} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm glow-primary flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
                 <CheckCircle2 size={16} /> Save Changes
               </button>
             </div>
