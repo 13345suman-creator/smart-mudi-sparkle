@@ -457,7 +457,7 @@ const Stock = () => {
 
               {/* Expiry */}
               <div>
-                <label className="text-xs font-medium text-foreground mb-1.5 block">Expiry Date</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Expiry Date (optional)</label>
                 <input type="date" value={newProduct.expiry || ""} onChange={e => setNewProduct({ ...newProduct, expiry: e.target.value })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
               </div>
 
