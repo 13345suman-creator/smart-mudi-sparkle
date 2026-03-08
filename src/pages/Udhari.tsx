@@ -81,7 +81,11 @@ const Udhari = () => {
 
   const handlePartialPay = () => {
     if (!showPartial || !partialAmount) return;
-    payUdhari(showPartial.id, Number(partialAmount), payMethod);
+    const paidAmount = Number(partialAmount);
+    const remainingAfter = showPartial.amount - paidAmount;
+    payUdhari(showPartial.id, paidAmount, payMethod);
+    // Voice notification
+    speakUdhariPayment(paidAmount, remainingAfter, payMethod);
     setShowPartial(null);
     setPartialAmount("");
     setPayMethod("cash");
