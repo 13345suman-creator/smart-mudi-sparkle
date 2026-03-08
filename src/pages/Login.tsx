@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { Store, Sparkles, Mail, Lock, User, ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react";
+import { useLanguage } from "@/lib/language";
+import { Store, Sparkles, Mail, Lock, User, ArrowLeft, CheckCircle, Eye, EyeOff, AlertTriangle } from "lucide-react";
 
 type AuthMode = "login" | "signup" | "reset";
 
 const Login = () => {
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail, resetPassword } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showSpamWarning, setShowSpamWarning] = useState(false);
   const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -30,6 +33,7 @@ const Login = () => {
     setGoogleLoading(true);
     setError("");
     setSuccess("");
+    setShowSpamWarning(false);
     try {
       await loginWithGoogle();
     } catch (err: any) {
@@ -44,16 +48,18 @@ const Login = () => {
     setLoading(true);
     setError("");
     setSuccess("");
+    setShowSpamWarning(false);
     try {
       if (mode === "login") {
         await loginWithEmail(email, password);
       } else if (mode === "signup") {
         await signupWithEmail(email, password, name);
-        setSuccess("✅ Account তৈরি হয়েছে! Home page এ যাচ্ছে...");
+        setSuccess(t("account_created"));
       } else if (mode === "reset") {
         await resetPassword(email);
-        setSuccess("✅ Password reset email পাঠানো হয়েছে! Email check করুন।");
-        setTimeout(() => setMode("login"), 2000);
+        setSuccess(t("reset_email_sent"));
+        setShowSpamWarning(true);
+        setTimeout(() => setMode("login"), 3000);
       }
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -67,6 +73,7 @@ const Login = () => {
     setError("");
     setSuccess("");
     setShowPassword(false);
+    setShowSpamWarning(false);
   };
 
   return (
@@ -94,7 +101,7 @@ const Login = () => {
             </h1>
             <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
               <Sparkles size={12} className="text-primary" />
-              Your Smart Shop Assistant
+              {t("smart_shop_tagline")}
             </p>
           </div>
         </div>
@@ -111,7 +118,7 @@ const Login = () => {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Login
+              {t("login_tab")}
             </button>
             <button
               onClick={() => switchMode("signup")}
@@ -121,21 +128,21 @@ const Login = () => {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Sign Up
+              {t("signup_tab")}
             </button>
           </div>
 
           {/* Header text */}
           <div className="text-center">
             <h2 className="font-display font-bold text-lg text-foreground">
-              {mode === "login" ? "Login করুন" : mode === "signup" ? "নতুন Account" : "Password Reset"}
+              {mode === "login" ? t("login_heading") : mode === "signup" ? t("signup_heading") : t("reset_heading")}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {mode === "login" 
-                ? "Email ও Password দিয়ে login করুন" 
+                ? t("login_subtitle") 
                 : mode === "signup" 
-                  ? "নতুন account তৈরি করুন — ফ্রি!" 
-                  : "আপনার email দিন, reset link পাঠাবো"}
+                  ? t("signup_subtitle") 
+                  : t("reset_subtitle")}
             </p>
           </div>
 
@@ -144,6 +151,14 @@ const Login = () => {
             <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20">
               <CheckCircle size={16} className="text-success shrink-0" />
               <p className="text-xs text-success font-medium">{success}</p>
+            </div>
+          )}
+
+          {/* Spam Warning */}
+          {showSpamWarning && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-warning/10 border border-warning/20">
+              <AlertTriangle size={16} className="text-warning shrink-0" />
+              <p className="text-xs text-warning font-medium">{t("reset_spam_warning")}</p>
             </div>
           )}
 
@@ -161,7 +176,7 @@ const Login = () => {
                   <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="আপনার নাম (দোকানদার)"
+                    placeholder={t("your_name")}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -173,7 +188,7 @@ const Login = () => {
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="email"
-                  placeholder="Email address"
+                  placeholder={t("email_address")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -185,7 +200,7 @@ const Login = () => {
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder={mode === "signup" ? "Password (কমপক্ষে ৬ অক্ষর)" : "Password"}
+                  placeholder={mode === "signup" ? t("password_signup_placeholder") : t("password_placeholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -207,7 +222,7 @@ const Login = () => {
                   onClick={() => switchMode("reset")} 
                   className="text-xs text-primary hover:underline w-full text-right"
                 >
-                  Password ভুলে গেছেন?
+                  {t("forgot_password")}
                 </button>
               )}
 
@@ -219,9 +234,9 @@ const Login = () => {
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 ) : mode === "login" ? (
-                  "🔑 Login করুন"
+                  t("login_button")
                 ) : (
-                  "✨ Account তৈরি করুন"
+                  t("signup_button")
                 )}
               </button>
             </form>
@@ -232,7 +247,7 @@ const Login = () => {
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="email"
-                  placeholder="আপনার email address"
+                  placeholder={t("your_email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -248,7 +263,7 @@ const Login = () => {
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 ) : (
-                  "📧 Reset Link পাঠান"
+                  t("reset_button")
                 )}
               </button>
 
@@ -257,7 +272,7 @@ const Login = () => {
                 onClick={() => switchMode("login")} 
                 className="text-xs text-primary hover:underline flex items-center justify-center gap-1 mx-auto"
               >
-                <ArrowLeft size={12} /> Login এ ফিরে যান
+                <ArrowLeft size={12} /> {t("back_to_login")}
               </button>
             </form>
           )}
@@ -265,7 +280,7 @@ const Login = () => {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">অথবা</span>
+            <span className="text-xs text-muted-foreground">{t("or_divider")}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -285,13 +300,13 @@ const Login = () => {
                   <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
                   <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
                 </svg>
-                Google দিয়ে Login
+                {t("google_login")}
               </>
             )}
           </button>
 
           <p className="text-[10px] text-muted-foreground text-center">
-            ⚠️ APK তে Google login কাজ নাও করতে পারে। Email দিয়ে login করুন।
+            {t("apk_warning")}
           </p>
         </div>
 
@@ -300,7 +315,7 @@ const Login = () => {
           onClick={() => navigate("/")} 
           className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
         >
-          <ArrowLeft size={12} /> Login ছাড়া ব্যবহার করুন
+          <ArrowLeft size={12} /> {t("use_without_login")}
         </button>
       </div>
     </div>
