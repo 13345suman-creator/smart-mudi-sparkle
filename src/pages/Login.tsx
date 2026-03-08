@@ -71,8 +71,16 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-primary/8 blur-[120px]" />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-accent/8 blur-[100px]" />
+      {/* Animated background orbs */}
+      <div className="login-orb login-orb-1" />
+      <div className="login-orb login-orb-2" />
+      <div className="login-orb login-orb-3" />
+      <div className="login-orb login-orb-4" />
+      <div className="login-orb login-orb-5" />
+      {/* Grid overlay */}
+      <div className="absolute inset-0 login-grid-bg opacity-[0.03]" />
+      {/* Shimmer line */}
+      <div className="absolute top-0 left-0 right-0 h-px login-shimmer-line" />
 
       <div className="relative z-10 flex flex-col items-center gap-5 max-w-sm w-full">
         {/* Logo */}
