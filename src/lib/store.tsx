@@ -358,7 +358,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setUdhariEntries(prev => [...prev, entryWithDefaults]);
       notifyUdhari(entry.name, entryWithDefaults.amount, currency);
       if (isOnline) {
-        try { await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults); } catch (e) { console.warn(e); }
+        const bytes = estimateBytes(entryWithDefaults);
+        try {
+          await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults);
+          await updateGlobalStorage(bytes);
+        } catch (e) { console.warn(e); }
       }
     }
   };
