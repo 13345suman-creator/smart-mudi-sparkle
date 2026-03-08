@@ -30,15 +30,8 @@ const DashboardHeader = () => {
     }));
   }, [t]);
 
-  const handleLogin = async () => {
-    setLoginLoading(true);
-    try {
-      await loginWithGoogle();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleLogin = () => {
+    navigate("/login");
   };
 
   const threshold = parseInt(localStorage.getItem("smk_lowstock_threshold") || "10");
