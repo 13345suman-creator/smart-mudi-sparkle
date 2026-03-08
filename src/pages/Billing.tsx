@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash } from "lucide-react";
+import { speakBillPayment, speakNewUdhari } from "@/lib/notifications";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
