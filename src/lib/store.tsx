@@ -380,6 +380,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProduct = async (product: Product) => {
     setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+    // Check low stock
+    const threshold = parseInt(localStorage.getItem("smk_lowstock_threshold") || "10");
+    if (product.stock > 0 && product.stock <= threshold) {
+      notifyLowStock(product.name, product.stock);
+    }
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/products`, product.id), product); } catch (e) { console.warn(e); }
     }
