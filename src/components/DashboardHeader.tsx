@@ -12,7 +12,7 @@ const DashboardHeader = () => {
   const { t } = useLanguage();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginLoading] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
   useEffect(() => {
