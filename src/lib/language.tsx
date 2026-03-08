@@ -110,6 +110,34 @@ const translations: Record<string, Record<Lang, string>> = {
   "max_fingerprints": { bn: "সর্বোচ্চ ৫টি ফিঙ্গারপ্রিন্ট সংরক্ষণ করা যায়", hi: "अधिकतम 5 फिंगरप्रिंट सहेजे जा सकते हैं", en: "Maximum 5 fingerprints can be saved" },
   "add_fingerprint": { bn: "ফিঙ্গারপ্রিন্ট যোগ করুন", hi: "फिंगरप्रिंट जोड़ें", en: "Add Fingerprint" },
   "manage_fingerprints": { bn: "ফিঙ্গারপ্রিন্ট ম্যানেজ", hi: "फिंगरप्रिंट प्रबंधित करें", en: "Manage Fingerprints" },
+
+  // Login Page
+  "login_tab": { bn: "লগইন", hi: "लॉगिन", en: "Login" },
+  "signup_tab": { bn: "সাইন আপ", hi: "साइन अप", en: "Sign Up" },
+  "login_heading": { bn: "লগইন করুন", hi: "लॉगिन करें", en: "Login" },
+  "signup_heading": { bn: "নতুন Account", hi: "नया अकाउंट", en: "New Account" },
+  "reset_heading": { bn: "Password Reset", hi: "पासवर्ड रीसेट", en: "Password Reset" },
+  "login_subtitle": { bn: "Email ও Password দিয়ে login করুন", hi: "ईमेल और पासवर्ड से लॉगिन करें", en: "Login with your email and password" },
+  "signup_subtitle": { bn: "নতুন account তৈরি করুন — ফ্রি!", hi: "नया अकाउंट बनाएं — मुफ़्त!", en: "Create a new account — Free!" },
+  "reset_subtitle": { bn: "আপনার email দিন, reset link পাঠাবো", hi: "अपना ईमेल दें, रीसेट लिंक भेजेंगे", en: "Enter your email, we'll send a reset link" },
+  "your_name": { bn: "আপনার নাম (দোকানদার)", hi: "आपका नाम (दुकानदार)", en: "Your name (Shopkeeper)" },
+  "email_address": { bn: "Email address", hi: "ईमेल एड्रेस", en: "Email address" },
+  "password_placeholder": { bn: "Password", hi: "पासवर्ड", en: "Password" },
+  "password_signup_placeholder": { bn: "Password (কমপক্ষে ৬ অক্ষর)", hi: "पासवर्ड (कम से कम 6 अक्षर)", en: "Password (min 6 characters)" },
+  "forgot_password": { bn: "Password ভুলে গেছেন?", hi: "पासवर्ड भूल गए?", en: "Forgot password?" },
+  "login_button": { bn: "🔑 Login করুন", hi: "🔑 लॉगिन करें", en: "🔑 Login" },
+  "signup_button": { bn: "✨ Account তৈরি করুন", hi: "✨ अकाउंट बनाएं", en: "✨ Create Account" },
+  "reset_button": { bn: "📧 Reset Link পাঠান", hi: "📧 रीसेट लिंक भेजें", en: "📧 Send Reset Link" },
+  "or_divider": { bn: "অথবা", hi: "या", en: "or" },
+  "google_login": { bn: "Google দিয়ে Login", hi: "Google से लॉगिन", en: "Login with Google" },
+  "apk_warning": { bn: "⚠️ APK তে Google login কাজ নাও করতে পারে। Email দিয়ে login করুন।", hi: "⚠️ APK में Google लॉगिन काम नहीं कर सकता। ईमेल से लॉगिन करें।", en: "⚠️ Google login may not work in APK. Use email login instead." },
+  "use_without_login": { bn: "Login ছাড়া ব্যবহার করুন", hi: "लॉगिन के बिना उपयोग करें", en: "Use without login" },
+  "back_to_login": { bn: "Login এ ফিরে যান", hi: "लॉगिन पर वापस जाएं", en: "Back to Login" },
+  "your_email": { bn: "আপনার email address", hi: "आपका ईमेल एड्रेस", en: "Your email address" },
+  "smart_shop_tagline": { bn: "Your Smart Shop Assistant", hi: "आपका स्मार्ट शॉप असिस्टेंट", en: "Your Smart Shop Assistant" },
+  "account_created": { bn: "✅ Account তৈরি হয়েছে! Home page এ যাচ্ছে...", hi: "✅ अकाउंट बन गया! होम पेज पर जा रहे हैं...", en: "✅ Account created! Redirecting to home..." },
+  "reset_email_sent": { bn: "✅ Password reset email পাঠানো হয়েছে! Email check করুন।", hi: "✅ पासवर्ड रीसेट ईमेल भेजा गया! ईमेल चेक करें।", en: "✅ Password reset email sent! Check your email." },
+  "reset_spam_warning": { bn: "⚠️ Email না পেলে Spam/Junk ফোল্ডার check করুন।", hi: "⚠️ ईमेल न मिले तो Spam/Junk फ़ोल्डर चेक करें।", en: "⚠️ If you don't see the email, check your Spam/Junk folder." },
 };
 
 interface LanguageContextType {
@@ -126,7 +154,7 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>(() => {
-    return (localStorage.getItem("smk_language") as Lang) || "bn";
+    return (localStorage.getItem("smk_language") as Lang) || "en";
   });
 
   const setLang = (l: Lang) => {
