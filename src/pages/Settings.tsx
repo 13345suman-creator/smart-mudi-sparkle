@@ -99,11 +99,6 @@ const Settings = () => {
     toast.success(t("save") + " ✅");
   };
 
-  const saveUpiIds = () => {
-    updateSettings({ upiIds });
-    setActiveModal(null);
-    toast.success("UPI IDs saved!");
-  };
 
   const applyTheme = (themeId: string) => {
     setCurrentTheme(themeId);
