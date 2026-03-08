@@ -30,7 +30,7 @@ const Settings = () => {
   const [shopName, setShopName] = useState(settings.shopName);
   const [shopAddress, setShopAddress] = useState(settings.shopAddress);
   const [shopGST, setShopGST] = useState(settings.shopGST);
-  const [upiIds, setUpiIds] = useState<string[]>([...settings.upiIds]);
+  
 
   // Appearance
   const [currentTheme, setCurrentTheme] = useState(() => {
