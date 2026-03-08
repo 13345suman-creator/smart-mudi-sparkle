@@ -576,7 +576,7 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <button key={stat.label} onClick={() => setSelectedStat(i)} className={`glass-card-hover p-4 text-left ${stat.gradient}`} style={{ animationDelay: `${i * 100}ms` }}>
+            <button key={stat.label} onClick={() => setSelectedStat(i)} className={`glass-card-hover p-4 text-left ${stat.gradient} relative`} style={{ animationDelay: `${i * 100}ms` }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-foreground/10 flex items-center justify-center">
                   <Icon size={16} className="text-foreground" />
@@ -584,7 +584,25 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                 <span className="text-[10px] text-primary font-semibold">{stat.change}</span>
               </div>
               <p className="text-lg font-bold font-display text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                {i === 0 && todayBills.length > 0 && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); generateSalesPDF("today"); }}
+                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    <Download size={10} /> PDF
+                  </span>
+                )}
+                {i === 1 && monthlyReportAvailable && monthlyBills.length > 0 && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); generateSalesPDF("monthly"); }}
+                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    <Download size={10} /> PDF
+                  </span>
+                )}
+              </div>
             </button>
           );
         })}
