@@ -96,13 +96,14 @@ export function speakBillPayment(total: number, paymentMode: string) {
   
   let message = "";
   if (lang === "bn") {
-    const mode = paymentMode === "upi" ? "UPI" : paymentMode === "cash" ? "নগদ" : paymentMode === "mixed" ? "মিক্সড" : paymentMode;
-    message = `${amount} ${cur} পেমেন্ট সম্পূর্ণ হয়েছে ${mode} থেকে`;
+    const mode = paymentMode === "upi" ? "ইউ পি আই" : paymentMode === "cash" ? "নগদ" : paymentMode === "mixed" ? "নগদ ও ইউ পি আই" : paymentMode;
+    message = `পেমেন্ট সফল। ${amount} ${cur}, ${mode} এর মাধ্যমে গ্রহণ করা হয়েছে। ধন্যবাদ।`;
   } else if (lang === "hi") {
-    const mode = paymentMode === "upi" ? "UPI" : paymentMode === "cash" ? "नकद" : paymentMode === "mixed" ? "मिक्स्ड" : paymentMode;
-    message = `${amount} ${cur} का भुगतान ${mode} से पूरा हुआ`;
+    const mode = paymentMode === "upi" ? "यू पी आई" : paymentMode === "cash" ? "नकद" : paymentMode === "mixed" ? "नकद और यू पी आई" : paymentMode;
+    message = `भुगतान सफल। ${amount} ${cur}, ${mode} के माध्यम से प्राप्त हुआ। धन्यवाद।`;
   } else {
-    message = `${amount} ${cur} payment completed via ${paymentMode}`;
+    const mode = paymentMode === "upi" ? "U P I" : paymentMode === "cash" ? "cash" : paymentMode === "mixed" ? "cash and U P I" : paymentMode;
+    message = `Payment successful. ${amount} ${cur} received via ${mode}. Thank you.`;
   }
   speak(message);
 }
@@ -116,24 +117,25 @@ export function speakUdhariPayment(amount: number, remaining: number, method: st
   
   let message = "";
   if (lang === "bn") {
-    const m = method === "upi" ? "UPI" : method === "cash" ? "নগদ" : method;
+    const m = method === "upi" ? "ইউ পি আই" : method === "cash" ? "নগদ" : method;
     if (rem <= 0) {
-      message = `${amt} ${cur} জমা হয়েছে ${m} থেকে। সম্পূর্ণ উধারি পরিশোধ হয়ে গেছে।`;
+      message = `উধারি পরিশোধ সম্পূর্ণ। ${amt} ${cur} ${m} এর মাধ্যমে জমা হয়েছে। সম্পূর্ণ বাকি পরিশোধ হয়ে গেছে। ধন্যবাদ।`;
     } else {
-      message = `${amt} ${cur} জমা হয়েছে ${m} থেকে। আর ${rem} ${cur} বাকি আছে।`;
+      message = `${amt} ${cur} ${m} এর মাধ্যমে জমা হয়েছে। বাকি আছে ${rem} ${cur}।`;
     }
   } else if (lang === "hi") {
-    const m = method === "upi" ? "UPI" : method === "cash" ? "नकद" : method;
+    const m = method === "upi" ? "यू पी आई" : method === "cash" ? "नकद" : method;
     if (rem <= 0) {
-      message = `${amt} ${cur} जमा हुआ ${m} से। पूरी उधारी चुकता हो गई।`;
+      message = `उधारी चुकता। ${amt} ${cur} ${m} से प्राप्त हुआ। पूरी उधारी चुकता हो गई। धन्यवाद।`;
     } else {
-      message = `${amt} ${cur} जमा हुआ ${m} से। अभी ${rem} ${cur} बाकी है।`;
+      message = `${amt} ${cur} ${m} से प्राप्त हुआ। अभी ${rem} ${cur} बाकी है।`;
     }
   } else {
+    const m = method === "upi" ? "U P I" : method === "cash" ? "cash" : method;
     if (rem <= 0) {
-      message = `${amt} ${cur} received via ${method}. Udhari fully cleared.`;
+      message = `Udhari cleared. ${amt} ${cur} received via ${m}. Full balance has been settled. Thank you.`;
     } else {
-      message = `${amt} ${cur} received via ${method}. ${rem} ${cur} remaining.`;
+      message = `${amt} ${cur} received via ${m}. Remaining balance is ${rem} ${cur}.`;
     }
   }
   speak(message);
@@ -147,11 +149,11 @@ export function speakNewUdhari(customerName: string, amount: number) {
   
   let message = "";
   if (lang === "bn") {
-    message = `${customerName} এর ${amt} ${cur} উধারি যোগ হয়েছে।`;
+    message = `নতুন উধারি। ${customerName} এর জন্য ${amt} ${cur} উধারি যোগ করা হয়েছে।`;
   } else if (lang === "hi") {
-    message = `${customerName} की ${amt} ${cur} उधारी जोड़ी गई।`;
+    message = `नई उधारी। ${customerName} के लिए ${amt} ${cur} उधारी जोड़ी गई।`;
   } else {
-    message = `${amt} ${cur} udhari added for ${customerName}.`;
+    message = `New udhari. ${amt} ${cur} credit added for ${customerName}.`;
   }
   speak(message);
 }
