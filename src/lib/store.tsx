@@ -268,6 +268,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const addBill = async (bill: CompletedBill) => {
     setBills(prev => [bill, ...prev]);
+    const currency = localStorage.getItem("smk_currency") || "₹";
+    notifyBill(bill.billNo, bill.total, currency);
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill); } catch (e) { console.warn("Firestore write failed, saved locally:", e); }
     }
