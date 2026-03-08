@@ -148,7 +148,7 @@ interface LanguageContextType {
 }
 
 const LanguageContext = createContext<LanguageContextType>({
-  lang: "bn",
+  lang: "en",
   setLang: () => {},
   t: (key: string) => key,
 });
