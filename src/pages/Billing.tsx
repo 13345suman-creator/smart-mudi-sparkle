@@ -5,10 +5,14 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
 const quantityPresets = [
+  { label: "50g", value: 0.05 },
   { label: "100g", value: 0.1 },
+  { label: "200g", value: 0.2 },
   { label: "250g", value: 0.25 },
   { label: "500g", value: 0.5 },
+  { label: "750g", value: 0.75 },
   { label: "1kg", value: 1 },
+  { label: "2kg", value: 2 },
 ];
 
 const generateBillNo = () => {
@@ -415,6 +419,19 @@ const Billing = () => {
                   }`}
                 >
                   {p.label}
+                </button>
+              ))}
+              {(item.unit !== "kg" && item.unit !== "gram") && [0.25, 0.5].map(q => (
+                <button
+                  key={q}
+                  onClick={() => updateQuantity(item.id, q)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    Math.abs(item.quantity - q) < 0.001
+                      ? "gradient-primary text-primary-foreground"
+                      : "bg-secondary/50 text-muted-foreground"
+                  }`}
+                >
+                  {q}
                 </button>
               ))}
               {[1, 2, 3, 5, 10].map(q => (
