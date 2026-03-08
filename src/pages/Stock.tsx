@@ -444,7 +444,7 @@ const Stock = () => {
               {/* Stock & Alert Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Stock Qty</label>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Stock Qty *</label>
                   <input type="number" placeholder="0" value={newProduct.stock || ""} onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
                 </div>
                 <div>
