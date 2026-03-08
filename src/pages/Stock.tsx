@@ -432,7 +432,7 @@ const Stock = () => {
               {/* Price Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Cost Price (₹)</label>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Cost Price (₹) *</label>
                   <input type="number" placeholder="0" value={newProduct.costPrice || ""} onChange={e => setNewProduct({ ...newProduct, costPrice: Number(e.target.value) })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
                 </div>
                 <div>
