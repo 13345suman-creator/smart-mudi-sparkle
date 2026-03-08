@@ -26,9 +26,15 @@ const AppContent = () => {
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    const appLock = localStorage.getItem("smk_applock") === "true";
+    const appLock = localStorage.getItem("smk_applock");
     const pin = localStorage.getItem("smk_lockpin");
-    if (!appLock || !pin) {
+    // Only lock if user explicitly enabled app lock AND set a valid 4-digit PIN
+    if (appLock !== "true" || !pin || pin.length !== 4) {
+      // Clean up invalid state
+      if (appLock === "true" && (!pin || pin.length !== 4)) {
+        localStorage.removeItem("smk_applock");
+        localStorage.removeItem("smk_lockpin");
+      }
       setUnlocked(true);
     }
   }, []);

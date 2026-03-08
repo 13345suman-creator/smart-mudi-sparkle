@@ -12,11 +12,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Detect if running in Capacitor/native app or restricted environment
-const isNativeApp = () => {
-  return !!(window as any).Capacitor || 
-         /wv|webview/i.test(navigator.userAgent) ||
-         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+// Detect if running in Capacitor/native app
+const isCapacitorApp = () => {
+  return !!(window as any).Capacitor;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -48,31 +46,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async () => {
     try {
-      // Always configure provider
       provider.setCustomParameters({ prompt: 'select_account' });
       
-      if (isNativeApp()) {
-        // Use redirect for native apps / webviews where popups don't work
-        toast.info("Redirecting to Google login...");
-        await signInWithRedirect(auth, provider);
-      } else {
-        try {
-          const result = await signInWithPopup(auth, provider);
-          console.log("Logged in:", result.user);
-          toast.success(`Welcome, ${result.user.displayName}!`);
-        } catch (popupError: any) {
-          // If popup blocked, fall back to redirect
-          if (popupError.code === "auth/popup-blocked" || 
-              popupError.code === "auth/popup-closed-by-user" ||
-              popupError.code === "auth/cancelled-popup-request") {
+      // Always use popup - works in both browser and Capacitor WebView
+      // signInWithRedirect does NOT work in Capacitor/WebView environments
+      try {
+        const result = await signInWithPopup(auth, provider);
+        console.log("Logged in:", result.user);
+        toast.success(`Welcome, ${result.user.displayName}!`);
+      } catch (popupError: any) {
+        if (popupError.code === "auth/popup-blocked") {
+          // Only use redirect as absolute last resort (won't work in APK)
+          if (!isCapacitorApp()) {
             toast.info("Popup blocked. Redirecting...");
             await signInWithRedirect(auth, provider);
-          } else if (popupError.code === "auth/unauthorized-domain") {
-            toast.error("Domain not authorized! Add this domain to Firebase Console → Authentication → Authorized domains.", { duration: 8000 });
-            throw popupError;
           } else {
-            throw popupError;
+            toast.error("Please allow popups for Google login to work.");
           }
+        } else if (popupError.code === "auth/unauthorized-domain") {
+          toast.error("Domain not authorized! Add this domain to Firebase Console → Authentication → Authorized domains.", { duration: 8000 });
+          throw popupError;
+        } else if (popupError.code !== "auth/popup-closed-by-user" && 
+                   popupError.code !== "auth/cancelled-popup-request") {
+          throw popupError;
         }
       }
     } catch (error: any) {
