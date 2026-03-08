@@ -299,6 +299,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const isOnline = !!uid;
 
   const addBill = async (bill: CompletedBill) => {
+    if (checkStorageLimit()) return;
     setBills(prev => [bill, ...prev]);
     const currency = localStorage.getItem("smk_currency") || "₹";
     notifyBill(bill.billNo, bill.total, currency);
