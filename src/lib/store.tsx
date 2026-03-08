@@ -469,9 +469,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
+    const product = products.find(p => p.id === id);
     setProducts(prev => prev.filter(p => p.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/products`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/products`, id));
+        if (product) await updateGlobalStorage(-estimateBytes(product));
+      } catch (e) { console.warn(e); }
     }
   };
 
