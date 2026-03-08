@@ -11,21 +11,31 @@ import {
   updateDoc,
   writeBatch,
   getDocs,
+  getDoc,
+  increment,
 } from "firebase/firestore";
 
 const STORAGE_LIMIT_MB = 900;
+const GLOBAL_STORAGE_DOC = "global/storageUsage";
 
-function estimateStorageMB(bills: any[], udhari: any[], paidoff: any[], products: any[], settings: any): number {
+function estimateBytes(data: any): number {
   try {
-    const totalBytes = 
-      JSON.stringify(bills).length +
-      JSON.stringify(udhari).length +
-      JSON.stringify(paidoff).length +
-      JSON.stringify(products).length +
-      JSON.stringify(settings).length;
-    return totalBytes / (1024 * 1024);
+    return new Blob([JSON.stringify(data)]).size;
   } catch {
-    return 0;
+    return JSON.stringify(data).length;
+  }
+}
+
+async function updateGlobalStorage(deltaBytes: number) {
+  try {
+    await updateDoc(doc(db, GLOBAL_STORAGE_DOC), { totalBytes: increment(deltaBytes) });
+  } catch {
+    // Doc might not exist yet, create it
+    try {
+      await setDoc(doc(db, GLOBAL_STORAGE_DOC), { totalBytes: Math.max(0, deltaBytes) });
+    } catch (e) {
+      console.warn("Failed to update global storage counter:", e);
+    }
   }
 }
 
@@ -165,8 +175,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>(() => loadLocal(LS_KEYS.products, []));
   const [loading, setLoading] = useState(false);
   const [showStorageLimitDialog, setShowStorageLimitDialog] = useState(false);
+  const [globalStorageBytes, setGlobalStorageBytes] = useState(0);
 
-  const storageMB = estimateStorageMB(bills, udhariEntries, paidOffCustomers, products, settings);
+  const storageMB = globalStorageBytes / (1024 * 1024);
   const storageLimitExceeded = storageMB >= STORAGE_LIMIT_MB;
 
   const checkStorageLimit = (): boolean => {
@@ -187,6 +198,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => { saveLocal(LS_KEYS.paidoff, paidOffCustomers); }, [paidOffCustomers]);
   useEffect(() => { saveLocal(LS_KEYS.settings, settings); }, [settings]);
   useEffect(() => { saveLocal(LS_KEYS.products, products); }, [products]);
+
+  // Listen to global storage counter (works for all users)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, GLOBAL_STORAGE_DOC), (snap) => {
+      if (snap.exists()) {
+        setGlobalStorageBytes(snap.data().totalBytes || 0);
+      }
+    }, (err) => {
+      console.warn("Global storage listener error:", err.message);
+    });
+    return () => unsub();
+  }, []);
 
   // Cleanup all Firestore listeners
   const cleanupListeners = useCallback(() => {
@@ -304,7 +327,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const currency = localStorage.getItem("smk_currency") || "₹";
     notifyBill(bill.billNo, bill.total, currency);
     if (isOnline) {
-      try { await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill); } catch (e) { console.warn("Firestore write failed, saved locally:", e); }
+      const bytes = estimateBytes(bill);
+      try {
+        await setDoc(doc(db, `users/${uid}/bills`, bill.id), bill);
+        await updateGlobalStorage(bytes);
+      } catch (e) { console.warn("Firestore write failed, saved locally:", e); }
     }
   };
 
@@ -331,7 +358,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setUdhariEntries(prev => [...prev, entryWithDefaults]);
       notifyUdhari(entry.name, entryWithDefaults.amount, currency);
       if (isOnline) {
-        try { await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults); } catch (e) { console.warn(e); }
+        const bytes = estimateBytes(entryWithDefaults);
+        try {
+          await setDoc(doc(db, `users/${uid}/udhari`, entryWithDefaults.id), entryWithDefaults);
+          await updateGlobalStorage(bytes);
+        } catch (e) { console.warn(e); }
       }
     }
   };
@@ -384,16 +415,24 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteUdhari = async (id: string) => {
+    const entry = udhariEntries.find(e => e.id === id);
     setUdhariEntries(prev => prev.filter(e => e.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/udhari`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/udhari`, id));
+        if (entry) await updateGlobalStorage(-estimateBytes(entry));
+      } catch (e) { console.warn(e); }
     }
   };
 
   const deletePaidOff = async (id: string) => {
+    const entry = paidOffCustomers.find(e => e.id === id);
     setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/paidoff`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/paidoff`, id));
+        if (entry) await updateGlobalStorage(-estimateBytes(entry));
+      } catch (e) { console.warn(e); }
     }
   };
 
@@ -409,7 +448,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (checkStorageLimit()) return;
     setProducts(prev => [...prev, product]);
     if (isOnline) {
-      try { await setDoc(doc(db, `users/${uid}/products`, product.id), product); } catch (e) { console.warn(e); }
+      const bytes = estimateBytes(product);
+      try {
+        await setDoc(doc(db, `users/${uid}/products`, product.id), product);
+        await updateGlobalStorage(bytes);
+      } catch (e) { console.warn(e); }
     }
   };
 
@@ -426,9 +469,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
+    const product = products.find(p => p.id === id);
     setProducts(prev => prev.filter(p => p.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/products`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/products`, id));
+        if (product) await updateGlobalStorage(-estimateBytes(product));
+      } catch (e) { console.warn(e); }
     }
   };
 
