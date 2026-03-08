@@ -12,12 +12,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Detect mobile environment (PWA, Capacitor, or mobile browser)
-const isMobileOrPWA = () => {
-  const isCapacitor = !!(window as any).Capacitor;
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-  const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  return isCapacitor || isStandalone || isMobile;
+// Detect environment type
+const isCapacitor = () => !!(window as any).Capacitor;
+const isPWAStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+const isMobileBrowser = () => /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// In Capacitor WebView, redirect doesn't work — must use popup
+// In PWA/mobile browser, popup gets blocked — must use redirect
+const getLoginMethod = (): 'popup' | 'redirect' => {
+  if (isCapacitor()) return 'popup'; // WebView can't handle redirects
+  if (isPWAStandalone() || isMobileBrowser()) return 'redirect'; // Mobile browsers block popups
+  return 'popup'; // Desktop default
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -50,10 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const loginWithGoogle = async () => {
     provider.setCustomParameters({ prompt: 'select_account' });
     
-    const useRedirect = isMobileOrPWA();
-    console.log("Login method:", useRedirect ? "redirect" : "popup", "| hostname:", window.location.hostname);
+    const method = getLoginMethod();
+    console.log("Login method:", method, "| Capacitor:", isCapacitor(), "| hostname:", window.location.hostname);
 
-    if (useRedirect) {
+    if (method === 'redirect') {
       // For installed apps (PWA/APK/mobile), use redirect — popups get blocked
       try {
         toast.info("Google login এ redirect হচ্ছে...");
