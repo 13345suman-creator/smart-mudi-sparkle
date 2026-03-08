@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Smartphone, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
