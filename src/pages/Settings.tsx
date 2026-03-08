@@ -248,7 +248,7 @@ const Settings = () => {
 
     const titles: Record<string, string> = {
       shop: t("shop_details"),
-      upi: t("upi_settings"),
+      
       security: t("security"),
       notifications: t("notifications"),
       appearance: t("appearance"),
