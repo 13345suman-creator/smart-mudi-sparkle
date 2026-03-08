@@ -1,5 +1,6 @@
 import { Bell, LogOut, LogIn, Cloud, CloudOff, X, Download, AlertTriangle, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useLanguage } from "@/lib/language";
