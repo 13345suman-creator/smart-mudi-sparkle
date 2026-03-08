@@ -5,10 +5,14 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
 const quantityPresets = [
+  { label: "50g", value: 0.05 },
   { label: "100g", value: 0.1 },
+  { label: "200g", value: 0.2 },
   { label: "250g", value: 0.25 },
   { label: "500g", value: 0.5 },
+  { label: "750g", value: 0.75 },
   { label: "1kg", value: 1 },
+  { label: "2kg", value: 2 },
 ];
 
 const generateBillNo = () => {
