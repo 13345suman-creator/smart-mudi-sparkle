@@ -13,6 +13,22 @@ import {
   getDocs,
 } from "firebase/firestore";
 
+const STORAGE_LIMIT_MB = 900;
+
+function estimateStorageMB(bills: any[], udhari: any[], paidoff: any[], products: any[], settings: any): number {
+  try {
+    const totalBytes = 
+      JSON.stringify(bills).length +
+      JSON.stringify(udhari).length +
+      JSON.stringify(paidoff).length +
+      JSON.stringify(products).length +
+      JSON.stringify(settings).length;
+    return totalBytes / (1024 * 1024);
+  } catch {
+    return 0;
+  }
+}
+
 export interface BillItem {
   id: string;
   name: string;
@@ -104,6 +120,10 @@ interface StoreContextType {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
   loading: boolean;
+  storageLimitExceeded: boolean;
+  storageMB: number;
+  showStorageLimitDialog: boolean;
+  setShowStorageLimitDialog: (show: boolean) => void;
 }
 
 const defaultSettings: ShopSettings = {
@@ -144,6 +164,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<ShopSettings>(() => loadLocal(LS_KEYS.settings, defaultSettings));
   const [products, setProducts] = useState<Product[]>(() => loadLocal(LS_KEYS.products, []));
   const [loading, setLoading] = useState(false);
+  const [showStorageLimitDialog, setShowStorageLimitDialog] = useState(false);
+
+  const storageMB = estimateStorageMB(bills, udhariEntries, paidOffCustomers, products, settings);
+  const storageLimitExceeded = storageMB >= STORAGE_LIMIT_MB;
+
+  const checkStorageLimit = (): boolean => {
+    if (storageLimitExceeded) {
+      setShowStorageLimitDialog(true);
+      return true;
+    }
+    return false;
+  };
   
   // Track whether we're listening to Firestore to prevent local saves from overwriting
   const firestoreActiveRef = useRef(false);
@@ -267,6 +299,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const isOnline = !!uid;
 
   const addBill = async (bill: CompletedBill) => {
+    if (checkStorageLimit()) return;
     setBills(prev => [bill, ...prev]);
     const currency = localStorage.getItem("smk_currency") || "₹";
     notifyBill(bill.billNo, bill.total, currency);
@@ -283,6 +316,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addUdhari = async (entry: UdhariEntry) => {
+    if (checkStorageLimit()) return;
     const currency = localStorage.getItem("smk_currency") || "₹";
     const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
     const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
@@ -372,6 +406,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addProduct = async (product: Product) => {
+    if (checkStorageLimit()) return;
     setProducts(prev => [...prev, product]);
     if (isOnline) {
       try { await setDoc(doc(db, `users/${uid}/products`, product.id), product); } catch (e) { console.warn(e); }
@@ -404,6 +439,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       settings, updateSettings,
       products, addProduct, updateProduct, deleteProduct,
       loading,
+      storageLimitExceeded, storageMB, showStorageLimitDialog, setShowStorageLimitDialog,
     }}>
       {children}
     </StoreContext.Provider>
