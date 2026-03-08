@@ -16,18 +16,26 @@ import {
 } from "firebase/firestore";
 
 const STORAGE_LIMIT_MB = 900;
+const GLOBAL_STORAGE_DOC = "global/storageUsage";
 
-function estimateStorageMB(bills: any[], udhari: any[], paidoff: any[], products: any[], settings: any): number {
+function estimateBytes(data: any): number {
   try {
-    const totalBytes = 
-      JSON.stringify(bills).length +
-      JSON.stringify(udhari).length +
-      JSON.stringify(paidoff).length +
-      JSON.stringify(products).length +
-      JSON.stringify(settings).length;
-    return totalBytes / (1024 * 1024);
+    return new Blob([JSON.stringify(data)]).size;
   } catch {
-    return 0;
+    return JSON.stringify(data).length;
+  }
+}
+
+async function updateGlobalStorage(deltaBytes: number) {
+  try {
+    await updateDoc(doc(db, GLOBAL_STORAGE_DOC), { totalBytes: increment(deltaBytes) });
+  } catch {
+    // Doc might not exist yet, create it
+    try {
+      await setDoc(doc(db, GLOBAL_STORAGE_DOC), { totalBytes: Math.max(0, deltaBytes) });
+    } catch (e) {
+      console.warn("Failed to update global storage counter:", e);
+    }
   }
 }
 
