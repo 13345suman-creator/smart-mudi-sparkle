@@ -112,16 +112,13 @@ const Settings = () => {
     toast.success(`Theme: ${THEMES.find(t => t.id === themeId)?.name}`);
   };
 
-  const saveNotifications = () => {
-    localStorage.setItem("smk_notif_bill", String(billNotif));
-    localStorage.setItem("smk_notif_lowstock", String(lowStockNotif));
-    localStorage.setItem("smk_notif_udhari", String(udhariNotif));
-    localStorage.setItem("smk_sound", String(soundEnabled));
-    if ((billNotif || lowStockNotif || udhariNotif) && "Notification" in window && Notification.permission === "default") {
+  const toggleNotifSetting = (key: string, value: boolean, setter: (v: boolean) => void) => {
+    setter(value);
+    localStorage.setItem(key, String(value));
+    if (value && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-    setActiveModal(null);
-    toast.success(t("notifications") + " saved!");
+    toast.success(value ? "Enabled ✅" : "Disabled ❌");
   };
 
   const saveSecurity = () => {
