@@ -48,41 +48,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const loginWithGoogle = async () => {
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    // Always try popup first — it works on most platforms including mobile browsers
     try {
-      provider.setCustomParameters({ prompt: 'select_account' });
+      console.log("Attempting popup login...");
+      const result = await signInWithPopup(auth, provider);
+      console.log("Popup login success:", result.user.email);
+      toast.success(`Welcome, ${result.user.displayName || result.user.email}!`);
+      return;
+    } catch (popupError: any) {
+      console.error("Popup login error:", popupError.code, popupError.message);
       
-      if (isMobileOrPWA()) {
-        // Mobile/PWA: use redirect (popup gets blocked or lost)
-        console.log("Mobile detected, using redirect login");
-        await signInWithRedirect(auth, provider);
-        return; // redirect will navigate away, result handled in useEffect
-      }
-      
-      // Desktop: use popup
-      try {
-        const result = await signInWithPopup(auth, provider);
-        console.log("Logged in:", result.user);
-        toast.success(`Welcome, ${result.user.displayName}!`);
-      } catch (popupError: any) {
-        if (popupError.code === "auth/popup-blocked") {
-          toast.info("Popup blocked. Redirecting...");
+      // If popup was blocked or failed due to environment, fall back to redirect
+      if (popupError.code === "auth/popup-blocked" || 
+          popupError.code === "auth/popup-closed-by-user" ||
+          popupError.code === "auth/cancelled-popup-request") {
+        console.log("Popup failed, trying redirect...");
+        toast.info("Redirecting to Google login...");
+        try {
           await signInWithRedirect(auth, provider);
-        } else if (popupError.code === "auth/unauthorized-domain") {
-          toast.error("Domain not authorized! Add this domain to Firebase Console → Authentication → Authorized domains.", { duration: 8000 });
-          throw popupError;
-        } else if (popupError.code !== "auth/popup-closed-by-user" && 
-                   popupError.code !== "auth/cancelled-popup-request") {
-          throw popupError;
+          return;
+        } catch (redirectError: any) {
+          console.error("Redirect error:", redirectError);
+          toast.error(redirectError.message || "Login failed");
+          throw redirectError;
         }
       }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      if (error.code === "auth/unauthorized-domain") {
-        toast.error("Domain not authorized in Firebase. Please add this domain to Firebase Console.", { duration: 8000 });
-      } else if (error.code !== "auth/popup-closed-by-user") {
-        toast.error(error.message || "Login failed");
+      
+      if (popupError.code === "auth/unauthorized-domain") {
+        const currentDomain = window.location.hostname;
+        toast.error(`Domain "${currentDomain}" is not authorized in Firebase. Add it to Firebase Console → Authentication → Authorized domains.`, { duration: 10000 });
+        console.error("Add this domain to Firebase authorized domains:", currentDomain);
+      } else {
+        toast.error(popupError.message || "Login failed");
       }
-      throw error;
+      throw popupError;
     }
   };
 
