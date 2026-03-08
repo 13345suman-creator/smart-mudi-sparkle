@@ -421,6 +421,19 @@ const Billing = () => {
                   {p.label}
                 </button>
               ))}
+              {(item.unit !== "kg" && item.unit !== "gram") && [0.25, 0.5].map(q => (
+                <button
+                  key={q}
+                  onClick={() => updateQuantity(item.id, q)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    Math.abs(item.quantity - q) < 0.001
+                      ? "gradient-primary text-primary-foreground"
+                      : "bg-secondary/50 text-muted-foreground"
+                  }`}
+                >
+                  {q}
+                </button>
+              ))}
               {[1, 2, 3, 5, 10].map(q => (
                 <button
                   key={q}

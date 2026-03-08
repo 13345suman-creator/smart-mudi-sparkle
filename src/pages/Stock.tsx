@@ -67,8 +67,8 @@ const Stock = () => {
   };
 
   const handleAdd = async () => {
-    if (!newProduct.name || !newProduct.sellPrice) {
-      toast.error("Product name and sell price required");
+    if (!newProduct.name || !newProduct.sellPrice || !newProduct.costPrice || !newProduct.stock || newProduct.stock <= 0 || !newProduct.unit) {
+      toast.error("Name, Cost Price, Sell Price, Stock & Unit are required!");
       return;
     }
     // Check duplicate
