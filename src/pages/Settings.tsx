@@ -65,7 +65,7 @@ const Settings = () => {
     setShopName(settings.shopName);
     setShopAddress(settings.shopAddress);
     setShopGST(settings.shopGST);
-    setUpiIds([...settings.upiIds]);
+    
   }, [settings]);
 
   useEffect(() => {
