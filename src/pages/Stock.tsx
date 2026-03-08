@@ -586,14 +586,33 @@ const Stock = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Stock Qty</label>
-                  <input type="number" value={editingProduct.stock || ""} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
+              {/* Stock Qty with +/- */}
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1.5 block">Stock Qty</label>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) - 1) })} className="w-10 h-10 rounded-xl glass-card flex items-center justify-center text-lg font-bold text-foreground hover:bg-muted transition-colors">−</button>
+                  <input type="number" value={editingProduct.stock || ""} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl text-center font-semibold" />
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: (editingProduct.stock || 0) + 1 })} className="w-10 h-10 rounded-xl glass-card flex items-center justify-center text-lg font-bold text-foreground hover:bg-muted transition-colors">+</button>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Low Alert</label>
-                  <input type="number" value={editingProduct.lowStockAlert || ""} onChange={e => setEditingProduct({ ...editingProduct, lowStockAlert: Number(e.target.value) })} className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl" />
+                {/* Quick adjust buttons */}
+                <div className="flex gap-1.5 mt-2">
+                  {[-10, -5, -1, 1, 5, 10].map(v => (
+                    <button key={v} type="button" onClick={() => setEditingProduct({ ...editingProduct, stock: Math.max(0, (editingProduct.stock || 0) + v) })} className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${v > 0 ? "bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/20" : "bg-destructive/10 text-destructive hover:bg-destructive/20"}`}>
+                      {v > 0 ? `+${v}` : v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Low Alert with +/- */}
+              <div>
+                <label className="text-xs font-medium text-foreground mb-1.5 flex items-center gap-1">
+                  <AlertTriangle size={10} className="text-warning" /> Low Alert
+                </label>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: Math.max(0, (editingProduct.lowStockAlert || 0) - 1) })} className="w-10 h-10 rounded-xl glass-card flex items-center justify-center text-lg font-bold text-foreground hover:bg-muted transition-colors">−</button>
+                  <input type="number" value={editingProduct.lowStockAlert || ""} onChange={e => setEditingProduct({ ...editingProduct, lowStockAlert: Number(e.target.value) })} className="flex-1 glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 rounded-xl text-center font-semibold" />
+                  <button type="button" onClick={() => setEditingProduct({ ...editingProduct, lowStockAlert: (editingProduct.lowStockAlert || 0) + 1 })} className="w-10 h-10 rounded-xl glass-card flex items-center justify-center text-lg font-bold text-foreground hover:bg-muted transition-colors">+</button>
                 </div>
               </div>
 
