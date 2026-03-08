@@ -169,9 +169,9 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     const targetBills = type === "today" ? todayBills : monthlyBills;
     if (targetBills.length === 0) return;
 
-    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    const title = type === "today" ? "Today's Sales Report" : `Monthly Sales Report — ${now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`;
+    const dateStr = now.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const title = type === "today" ? "Daily Sales Report" : `Monthly Sales Report — ${now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`;
     const totalAmount = targetBills.reduce((s, b) => s + b.total, 0);
     const cashBills = targetBills.filter(b => b.paymentMode === "cash");
     const upiBills = targetBills.filter(b => b.paymentMode === "upi");
@@ -180,11 +180,26 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     const avgBill = totalAmount / (targetBills.length || 1);
     const maxBill = Math.max(...targetBills.map(b => b.total));
     const minBill = Math.min(...targetBills.map(b => b.total));
+    const totalItemsSold = targetBills.reduce((s, b) => s + b.items.length, 0);
+    const cashTotal = cashBills.reduce((s, b) => s + b.total, 0);
+    const upiTotal = upiBills.reduce((s, b) => s + b.total, 0);
+    const udhariTotal = udhariBills.reduce((s, b) => s + b.total, 0);
+    const paidPercentage = targetBills.length > 0 ? ((paidBills.length / targetBills.length) * 100).toFixed(0) : "0";
+
+    // Peak hour analysis for today
+    const hourlyBreakdown: { hour: number; sales: number; count: number }[] = [];
+    for (let h = 0; h < 24; h++) {
+      const hourBills = targetBills.filter(b => new Date(b.date).getHours() === h);
+      if (hourBills.length > 0) {
+        hourlyBreakdown.push({ hour: h, sales: hourBills.reduce((s, b) => s + b.total, 0), count: hourBills.length });
+      }
+    }
+    const peakHour = hourlyBreakdown.sort((a, b) => b.sales - a.sales)[0];
+    const peakHourLabel = peakHour ? `${peakHour.hour > 12 ? peakHour.hour - 12 : peakHour.hour}:00 ${peakHour.hour >= 12 ? 'PM' : 'AM'}` : "N/A";
 
     // Chart data
     let chartSVG = '';
     if (type === "today") {
-      // Hourly breakdown for today
       const hourlyData: { label: string; value: number }[] = [];
       for (let h = 6; h <= 23; h++) {
         const hourBills = todayBills.filter(b => new Date(b.date).getHours() === h);
@@ -195,16 +210,14 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
       }
       chartSVG = generateSVGChart(hourlyData);
     } else {
-      // Daily breakdown for monthly
       const dailyData = getDailyChartData();
       chartSVG = generateSVGChart(dailyData.map(d => ({ label: `${d.day}`, value: d.sales })));
     }
 
-    // Pie chart for payment methods
     const pieSVG = generatePieChart([
-      { label: `Cash (${cashBills.length})`, value: cashBills.reduce((s, b) => s + b.total, 0), color: "#10b981" },
-      { label: `UPI (${upiBills.length})`, value: upiBills.reduce((s, b) => s + b.total, 0), color: "#3b82f6" },
-      { label: `Udhari (${udhariBills.length})`, value: udhariBills.reduce((s, b) => s + b.total, 0), color: "#f59e0b" },
+      { label: `Cash (${cashBills.length})`, value: cashTotal, color: "#10b981" },
+      { label: `UPI (${upiBills.length})`, value: upiTotal, color: "#3b82f6" },
+      { label: `Udhari (${udhariBills.length})`, value: udhariTotal, color: "#f59e0b" },
     ]);
 
     // Top products
@@ -216,135 +229,302 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     }));
     const topProducts = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
 
-    let html = `<html><head><title>${title}</title>
+    // Unique customers
+    const uniqueCustomers = new Set(targetBills.map(b => b.customerName || "Walk-in")).size;
+
+    // Revenue progress bar segments
+    const revenueSegments = [
+      { label: "Cash", pct: totalAmount > 0 ? (cashTotal / totalAmount * 100) : 0, color: "#10b981" },
+      { label: "UPI", pct: totalAmount > 0 ? (upiTotal / totalAmount * 100) : 0, color: "#3b82f6" },
+      { label: "Udhari", pct: totalAmount > 0 ? (udhariTotal / totalAmount * 100) : 0, color: "#f59e0b" },
+    ];
+
+    let html = `<html><head><title>${title} - ${settings.shopName}</title>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Inter', system-ui, sans-serif; color: #1f2937; background: #fff; }
-      .page { max-width: 800px; margin: 0 auto; padding: 30px; }
+      body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1a1a2e; background: #f0f2f5; }
+      .page { max-width: 850px; margin: 0 auto; padding: 24px; }
 
-      .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); color: white; padding: 32px; border-radius: 16px; margin-bottom: 24px; position: relative; overflow: hidden; }
-      .header::before { content: ''; position: absolute; top: -50%; right: -20%; width: 300px; height: 300px; background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%); }
-      .header::after { content: ''; position: absolute; bottom: -30%; left: -10%; width: 200px; height: 200px; background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%); }
-      .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; position: relative; z-index: 1; }
-      .header .shop-name { font-size: 15px; font-weight: 600; color: #67e8f9; margin-top: 4px; position: relative; z-index: 1; }
-      .header .meta { font-size: 11px; color: #94a3b8; margin-top: 8px; position: relative; z-index: 1; }
-      .header .badge { display: inline-block; background: rgba(6,182,212,0.2); border: 1px solid rgba(6,182,212,0.3); padding: 4px 12px; border-radius: 20px; font-size: 10px; color: #67e8f9; font-weight: 600; margin-top: 8px; position: relative; z-index: 1; }
+      /* Premium Header */
+      .header { background: linear-gradient(145deg, #0a0a1a 0%, #1a1a3e 40%, #0d2847 70%, #0a3d62 100%); color: white; padding: 40px 36px; border-radius: 20px; margin-bottom: 20px; position: relative; overflow: hidden; box-shadow: 0 20px 60px rgba(10,10,26,0.4); }
+      .header::before { content: ''; position: absolute; top: -100px; right: -80px; width: 350px; height: 350px; background: radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 65%); }
+      .header::after { content: ''; position: absolute; bottom: -80px; left: -60px; width: 250px; height: 250px; background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 65%); }
+      .header-inner { position: relative; z-index: 2; }
+      .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+      .header h1 { font-size: 28px; font-weight: 900; letter-spacing: -1px; line-height: 1.1; background: linear-gradient(135deg, #ffffff 0%, #a5f3fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .header .subtitle { font-size: 13px; color: #67e8f9; margin-top: 6px; font-weight: 600; letter-spacing: 0.5px; }
+      .header .shop-info { text-align: right; }
+      .header .shop-name { font-size: 18px; font-weight: 800; color: #e0f2fe; }
+      .header .shop-details { font-size: 10px; color: #94a3b8; margin-top: 4px; line-height: 1.6; }
+      .header-badges { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+      .header .badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.25); padding: 5px 14px; border-radius: 20px; font-size: 10px; color: #67e8f9; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
+      .header .badge-accent { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.25); color: #c4b5fd; }
+      .divider-glow { height: 3px; background: linear-gradient(90deg, transparent, #06b6d4, #8b5cf6, transparent); border-radius: 2px; margin: 0 0 20px; opacity: 0.6; }
 
-      .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
-      .kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; text-align: center; position: relative; overflow: hidden; }
+      /* Revenue Hero */
+      .revenue-hero { background: linear-gradient(135deg, #ffffff, #f8fafc); border: 1px solid #e2e8f0; border-radius: 18px; padding: 28px 32px; margin-bottom: 20px; text-align: center; position: relative; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+      .revenue-hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6, #f59e0b); }
+      .revenue-hero .label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+      .revenue-hero .amount { font-size: 48px; font-weight: 900; background: linear-gradient(135deg, #0f172a, #1e40af); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 8px 0; letter-spacing: -2px; font-family: 'JetBrains Mono', monospace; }
+      .revenue-hero .sub { font-size: 12px; color: #64748b; }
+      .revenue-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 16px; background: #e2e8f0; }
+      .revenue-bar-seg { height: 100%; transition: width 0.3s; }
+
+      /* KPI Grid */
+      .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+      .kpi-card { background: #ffffff; border: 1px solid #e8ecf1; border-radius: 16px; padding: 20px 16px; text-align: center; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
       .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-      .kpi-card.blue::before { background: linear-gradient(90deg, #06b6d4, #3b82f6); }
-      .kpi-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
-      .kpi-card.purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-      .kpi-card.orange::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-      .kpi-num { font-size: 24px; font-weight: 800; color: #0f172a; }
-      .kpi-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; font-weight: 600; }
+      .kpi-card.emerald::before { background: linear-gradient(90deg, #10b981, #34d399); }
+      .kpi-card.sky::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+      .kpi-card.violet::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+      .kpi-card.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+      .kpi-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 16px; }
+      .kpi-card.emerald .kpi-icon { background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+      .kpi-card.sky .kpi-icon { background: linear-gradient(135deg, #ecfeff, #cffafe); }
+      .kpi-card.violet .kpi-icon { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+      .kpi-card.amber .kpi-icon { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+      .kpi-num { font-size: 22px; font-weight: 900; color: #0f172a; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.5px; }
+      .kpi-label { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; font-weight: 700; }
 
-      .section { margin-bottom: 24px; }
-      .section-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-      .section-title .icon { font-size: 16px; }
+      /* Sections */
+      .section { margin-bottom: 20px; }
+      .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .section-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+      .section-title { font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px; }
+      .section-line { flex: 1; height: 1px; background: linear-gradient(90deg, #e2e8f0, transparent); }
 
-      .chart-container { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-      .charts-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+      /* Charts */
+      .chart-wrapper { background: #ffffff; border: 1px solid #e8ecf1; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+      .charts-grid { display: grid; grid-template-columns: 1fr 240px; gap: 16px; align-items: start; }
 
-      .payment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
-      .pay-card { padding: 16px; border-radius: 12px; text-align: center; border: 1px solid; }
-      .pay-card.cash { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #a7f3d0; }
-      .pay-card.upi { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #93c5fd; }
-      .pay-card.udhari { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fcd34d; }
-      .pay-num { font-size: 18px; font-weight: 800; color: #0f172a; }
-      .pay-label { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 2px; }
-      .pay-count { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+      /* Payment Cards */
+      .payment-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+      .pay-card { padding: 20px 16px; border-radius: 14px; text-align: center; border: 1px solid; position: relative; overflow: hidden; }
+      .pay-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%; opacity: 0.05; }
+      .pay-card.cash { background: linear-gradient(160deg, #ecfdf5, #d1fae5); border-color: #a7f3d0; }
+      .pay-card.cash::after { background: linear-gradient(to top, #10b981, transparent); }
+      .pay-card.upi { background: linear-gradient(160deg, #eff6ff, #dbeafe); border-color: #93c5fd; }
+      .pay-card.upi::after { background: linear-gradient(to top, #3b82f6, transparent); }
+      .pay-card.udhari { background: linear-gradient(160deg, #fffbeb, #fef3c7); border-color: #fcd34d; }
+      .pay-card.udhari::after { background: linear-gradient(to top, #f59e0b, transparent); }
+      .pay-emoji { font-size: 24px; margin-bottom: 8px; }
+      .pay-amount { font-size: 20px; font-weight: 900; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+      .pay-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; margin-top: 4px; }
+      .pay-meta { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+      .pay-pct { font-size: 18px; font-weight: 800; margin-top: 4px; }
+      .pay-card.cash .pay-pct { color: #059669; }
+      .pay-card.upi .pay-pct { color: #2563eb; }
+      .pay-card.udhari .pay-pct { color: #d97706; }
 
-      .top-products { width: 100%; }
-      .top-product-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; }
-      .top-product-row:nth-child(odd) { background: #f8fafc; }
-      .top-product-row .rank { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: white; margin-right: 10px; }
-      .rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); }
-      .rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); }
-      .rank-3 { background: linear-gradient(135deg, #d97706, #b45309); }
-      .rank-default { background: #cbd5e1; }
+      /* Insights */
+      .insights-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+      .insight-card { background: #ffffff; border: 1px solid #e8ecf1; border-radius: 14px; padding: 18px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+      .insight-emoji { font-size: 20px; margin-bottom: 6px; }
+      .insight-val { font-size: 18px; font-weight: 900; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+      .insight-label { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-top: 3px; }
 
-      table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }
-      thead th { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 12px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
-      tbody td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
+      /* Top Products */
+      .top-product-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 12px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s; }
+      .top-product-item:nth-child(odd) { background: #fafbfc; }
+      .top-product-item:nth-child(1) { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fde68a; }
+      .top-product-item:nth-child(2) { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-color: #e2e8f0; }
+      .top-product-item:nth-child(3) { background: linear-gradient(135deg, #fef7ee, #fed7aa50); border-color: #fdba7440; }
+      .medal { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: white; margin-right: 12px; flex-shrink: 0; }
+      .medal-1 { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 2px 8px rgba(245,158,11,0.4); }
+      .medal-2 { background: linear-gradient(135deg, #94a3b8, #64748b); box-shadow: 0 2px 8px rgba(148,163,184,0.4); }
+      .medal-3 { background: linear-gradient(135deg, #d97706, #92400e); box-shadow: 0 2px 8px rgba(217,119,6,0.3); }
+      .medal-def { background: #cbd5e1; }
+      .prod-name { font-size: 13px; font-weight: 700; color: #0f172a; }
+      .prod-qty { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+      .prod-rev { font-size: 14px; font-weight: 900; color: #059669; font-family: 'JetBrains Mono', monospace; }
+
+      /* Table */
+      table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+      thead th { background: linear-gradient(145deg, #0a0a1a, #1a1a3e); color: white; padding: 14px 12px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+      tbody td { padding: 11px 12px; border-bottom: 1px solid #f1f5f9; font-size: 11px; color: #374151; }
       tbody tr:hover { background: #f0f9ff; }
       tbody tr:last-child td { border-bottom: none; }
-      .status-paid { color: #059669; font-weight: 700; background: #ecfdf5; padding: 2px 8px; border-radius: 12px; font-size: 9px; }
-      .status-pending { color: #d97706; font-weight: 700; background: #fffbeb; padding: 2px 8px; border-radius: 12px; font-size: 9px; }
-      .total-row { background: linear-gradient(135deg, #f0f9ff, #e0f2fe) !important; }
-      .total-row td { font-weight: 800; font-size: 14px; padding: 14px 10px; border-top: 2px solid #06b6d4; }
+      .bill-no { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #64748b; font-weight: 500; }
+      .status-chip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; }
+      .status-paid { background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #059669; border: 1px solid #a7f3d0; }
+      .status-pending { background: linear-gradient(135deg, #fffbeb, #fef3c7); color: #d97706; border: 1px solid #fcd34d; }
+      .payment-chip { display: inline-block; text-transform: uppercase; font-size: 8px; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: #f1f5f9; color: #475569; letter-spacing: 0.5px; }
+      .amount-cell { font-weight: 900; color: #0f172a; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+      .total-row { background: linear-gradient(135deg, #ecfeff, #cffafe) !important; }
+      .total-row td { font-weight: 900; font-size: 15px; padding: 16px 12px; border-top: 2px solid #06b6d4; color: #0891b2; }
 
-      .stats-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-      .stats-mini-card { text-align: center; padding: 12px; background: #fafbfc; border-radius: 10px; border: 1px solid #e5e7eb; }
-      .stats-mini-card .val { font-size: 15px; font-weight: 800; color: #0f172a; }
-      .stats-mini-card .lbl { font-size: 9px; color: #9ca3af; text-transform: uppercase; margin-top: 2px; }
+      /* Footer */
+      .footer { margin-top: 30px; text-align: center; padding: 24px; border-radius: 16px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid #e2e8f0; }
+      .footer .brand { font-weight: 900; font-size: 14px; background: linear-gradient(135deg, #06b6d4, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.3px; }
+      .footer .gen-info { font-size: 10px; color: #94a3b8; margin-top: 6px; line-height: 1.6; }
+      .footer .confidential { display: inline-block; margin-top: 10px; font-size: 8px; color: #cbd5e1; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; border: 1px solid #e2e8f0; padding: 4px 14px; border-radius: 20px; }
 
-      .footer { margin-top: 32px; text-align: center; color: #94a3b8; font-size: 10px; border-top: 2px solid #e2e8f0; padding-top: 16px; }
-      .footer .brand { font-weight: 700; color: #06b6d4; font-size: 12px; }
-      .watermark { position: fixed; bottom: 20px; right: 30px; font-size: 60px; color: rgba(0,0,0,0.02); font-weight: 900; transform: rotate(-15deg); pointer-events: none; }
+      .watermark { position: fixed; bottom: 30px; right: 40px; font-size: 80px; color: rgba(0,0,0,0.015); font-weight: 900; transform: rotate(-12deg); pointer-events: none; letter-spacing: -4px; }
 
       @media print { 
-        @page { margin: 8mm; size: A4; } 
+        @page { margin: 6mm; size: A4; } 
         .no-print { display: none !important; } 
-        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; background: #fff; }
+        .page { padding: 0; }
       }
     </style></head><body>
     <div class="page">
+      <!-- Header -->
       <div class="header">
-        <h1>📊 ${title}</h1>
-        <p class="shop-name">🏪 ${settings.shopName}</p>
-        <p class="meta">${settings.shopAddress || ""} ${settings.shopGST ? `• GST: ${settings.shopGST}` : ""}</p>
-        <p class="meta">Generated: ${dateStr} at ${timeStr}</p>
-        <span class="badge">${type === "today" ? "📅 DAILY REPORT" : "📆 MONTHLY REPORT"}</span>
-      </div>
-
-      <div class="kpi-grid">
-        <div class="kpi-card blue"><div class="kpi-num">${targetBills.length}</div><div class="kpi-label">Total Bills</div></div>
-        <div class="kpi-card green"><div class="kpi-num">${currency}${totalAmount.toLocaleString()}</div><div class="kpi-label">Total Revenue</div></div>
-        <div class="kpi-card purple"><div class="kpi-num">${paidBills.length}/${targetBills.length}</div><div class="kpi-label">Paid / Total</div></div>
-        <div class="kpi-card orange"><div class="kpi-num">${currency}${avgBill.toFixed(0)}</div><div class="kpi-label">Avg Bill Value</div></div>
-      </div>
-
-      <div class="stats-mini">
-        <div class="stats-mini-card"><div class="val">${currency}${maxBill.toLocaleString()}</div><div class="lbl">Highest Bill</div></div>
-        <div class="stats-mini-card"><div class="val">${currency}${minBill.toLocaleString()}</div><div class="lbl">Lowest Bill</div></div>
-        <div class="stats-mini-card"><div class="val">${targetBills.reduce((s, b) => s + b.items.length, 0)}</div><div class="lbl">Total Items Sold</div></div>
-      </div>
-
-      <div class="section">
-        <div class="section-title"><span class="icon">📈</span> ${type === "today" ? "Hourly Sales Breakdown" : "Daily Sales Trend"}</div>
-        <div class="charts-row">
-          <div class="chart-container">${chartSVG}</div>
-          <div class="chart-container" style="min-width:200px"><p style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px">Payment Split</p>${pieSVG}</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title"><span class="icon">💳</span> Payment Method Summary</div>
-        <div class="payment-grid">
-          <div class="pay-card cash"><div class="pay-num">${currency}${cashBills.reduce((s, b) => s + b.total, 0).toLocaleString()}</div><div class="pay-label">Cash</div><div class="pay-count">${cashBills.length} bills</div></div>
-          <div class="pay-card upi"><div class="pay-num">${currency}${upiBills.reduce((s, b) => s + b.total, 0).toLocaleString()}</div><div class="pay-label">UPI</div><div class="pay-count">${upiBills.length} bills</div></div>
-          <div class="pay-card udhari"><div class="pay-num">${currency}${udhariBills.reduce((s, b) => s + b.total, 0).toLocaleString()}</div><div class="pay-label">Udhari</div><div class="pay-count">${udhariBills.length} bills</div></div>
-        </div>
-      </div>
-
-      ${topProducts.length > 0 ? `<div class="section">
-        <div class="section-title"><span class="icon">🏆</span> Top Selling Products</div>
-        <div class="top-products">
-          ${topProducts.map((p, i) => `<div class="top-product-row">
-            <div style="display:flex;align-items:center">
-              <div class="rank ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-default'}">${i + 1}</div>
-              <div><div style="font-size:12px;font-weight:700;color:#0f172a">${p.name}</div><div style="font-size:10px;color:#94a3b8">${p.qty} units sold</div></div>
+        <div class="header-inner">
+          <div class="header-top">
+            <div>
+              <h1>📊 ${title}</h1>
+              <p class="subtitle">${type === "today" ? "Real-time Daily Performance Analytics" : "Comprehensive Monthly Business Overview"}</p>
             </div>
-            <div style="font-size:13px;font-weight:800;color:#059669">${currency}${p.revenue.toLocaleString()}</div>
+            <div class="shop-info">
+              <div class="shop-name">🏪 ${settings.shopName}</div>
+              <div class="shop-details">
+                ${settings.shopAddress ? `📍 ${settings.shopAddress}<br/>` : ""}
+                ${settings.shopGST ? `🏛️ GST: ${settings.shopGST}<br/>` : ""}
+                📅 ${dateStr}
+              </div>
+            </div>
+          </div>
+          <div class="header-badges">
+            <span class="badge">📋 Report ID: RPT-${Date.now().toString(36).toUpperCase()}</span>
+            <span class="badge badge-accent">⏰ Generated: ${timeStr}</span>
+            <span class="badge">${type === "today" ? "📅 DAILY" : "📆 MONTHLY"} REPORT</span>
+          </div>
+        </div>
+      </div>
+      <div class="divider-glow"></div>
+
+      <!-- Revenue Hero -->
+      <div class="revenue-hero">
+        <div class="label">Total Revenue ${type === "today" ? "Today" : "This Month"}</div>
+        <div class="amount">${currency}${totalAmount.toLocaleString()}</div>
+        <div class="sub">${targetBills.length} transactions • ${totalItemsSold} items sold • ${uniqueCustomers} customers</div>
+        <div class="revenue-bar">
+          ${revenueSegments.map(s => `<div class="revenue-bar-seg" style="width:${s.pct}%;background:${s.color}"></div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:center;gap:20px;margin-top:8px">
+          ${revenueSegments.map(s => `<span style="font-size:9px;color:#64748b;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label} ${s.pct.toFixed(0)}%</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card emerald">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-num">${targetBills.length}</div>
+          <div class="kpi-label">Total Bills</div>
+        </div>
+        <div class="kpi-card sky">
+          <div class="kpi-icon">📊</div>
+          <div class="kpi-num">${currency}${avgBill.toFixed(0)}</div>
+          <div class="kpi-label">Avg Bill Value</div>
+        </div>
+        <div class="kpi-card violet">
+          <div class="kpi-icon">✅</div>
+          <div class="kpi-num">${paidPercentage}%</div>
+          <div class="kpi-label">Collection Rate</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-icon">🕐</div>
+          <div class="kpi-num">${peakHourLabel}</div>
+          <div class="kpi-label">Peak Hour</div>
+        </div>
+      </div>
+
+      <!-- Quick Insights -->
+      <div class="insights-grid">
+        <div class="insight-card">
+          <div class="insight-emoji">📈</div>
+          <div class="insight-val">${currency}${maxBill.toLocaleString()}</div>
+          <div class="insight-label">Highest Bill</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-emoji">📉</div>
+          <div class="insight-val">${currency}${minBill.toLocaleString()}</div>
+          <div class="insight-label">Lowest Bill</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-emoji">🛒</div>
+          <div class="insight-val">${totalItemsSold}</div>
+          <div class="insight-label">Total Items Sold</div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:linear-gradient(135deg,#ecfeff,#cffafe)">📈</div>
+          <div class="section-title">${type === "today" ? "Hourly Sales Performance" : "Daily Sales Trend"}</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-wrapper">${chartSVG}</div>
+          <div class="chart-wrapper">
+            <p style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:12px;text-align:center">Payment Distribution</p>
+            ${pieSVG}
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Methods -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe)">💳</div>
+          <div class="section-title">Payment Method Breakdown</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="payment-cards">
+          <div class="pay-card cash">
+            <div class="pay-emoji">💵</div>
+            <div class="pay-amount">${currency}${cashTotal.toLocaleString()}</div>
+            <div class="pay-label">Cash Payment</div>
+            <div class="pay-pct">${totalAmount > 0 ? (cashTotal/totalAmount*100).toFixed(1) : 0}%</div>
+            <div class="pay-meta">${cashBills.length} transactions</div>
+          </div>
+          <div class="pay-card upi">
+            <div class="pay-emoji">📱</div>
+            <div class="pay-amount">${currency}${upiTotal.toLocaleString()}</div>
+            <div class="pay-label">UPI Payment</div>
+            <div class="pay-pct">${totalAmount > 0 ? (upiTotal/totalAmount*100).toFixed(1) : 0}%</div>
+            <div class="pay-meta">${upiBills.length} transactions</div>
+          </div>
+          <div class="pay-card udhari">
+            <div class="pay-emoji">📝</div>
+            <div class="pay-amount">${currency}${udhariTotal.toLocaleString()}</div>
+            <div class="pay-label">Udhari (Credit)</div>
+            <div class="pay-pct">${totalAmount > 0 ? (udhariTotal/totalAmount*100).toFixed(1) : 0}%</div>
+            <div class="pay-meta">${udhariBills.length} transactions</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Products -->
+      ${topProducts.length > 0 ? `<div class="section">
+        <div class="section-header">
+          <div class="section-icon" style="background:linear-gradient(135deg,#fffbeb,#fef3c7)">🏆</div>
+          <div class="section-title">Top Selling Products</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="chart-wrapper">
+          ${topProducts.map((p, i) => `<div class="top-product-item">
+            <div style="display:flex;align-items:center">
+              <div class="medal ${i === 0 ? 'medal-1' : i === 1 ? 'medal-2' : i === 2 ? 'medal-3' : 'medal-def'}">${i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</div>
+              <div><div class="prod-name">${p.name}</div><div class="prod-qty">${p.qty} units sold</div></div>
+            </div>
+            <div class="prod-rev">${currency}${p.revenue.toLocaleString()}</div>
           </div>`).join('')}
         </div>
       </div>` : ''}
 
+      <!-- Transaction Table -->
       <div class="section">
-        <div class="section-title"><span class="icon">📋</span> Transaction Details</div>
+        <div class="section-header">
+          <div class="section-icon" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5)">📋</div>
+          <div class="section-title">Complete Transaction Log</div>
+          <div class="section-line"></div>
+        </div>
         <table>
           <thead><tr><th>#</th><th>Bill No</th><th>Customer</th><th>Items</th><th>Payment</th><th>Amount</th><th>Status</th><th>${type === "monthly" ? "Date" : "Time"}</th></tr></thead>
           <tbody>`;
@@ -354,31 +534,35 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
       const timeStr2 = bDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
       const dateStr2 = type === "monthly" ? bDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : timeStr2;
       html += `<tr>
-        <td style="color:#94a3b8;font-weight:600">${i + 1}</td>
-        <td style="font-family:monospace;font-size:10px;color:#475569">${b.billNo.slice(-12)}</td>
-        <td style="font-weight:600">${b.customerName || "Walk-in"}</td>
-        <td>${b.items.length} items</td>
-        <td><span style="text-transform:uppercase;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:#f1f5f9">${b.paymentMode}${b.upiApp ? ` (${b.upiApp})` : ""}</span></td>
-        <td style="font-weight:800;color:#0f172a">${currency}${b.total.toLocaleString()}</td>
-        <td><span class="${b.paymentConfirmed ? 'status-paid' : 'status-pending'}">${b.paymentConfirmed ? "✓ PAID" : "⏳ PENDING"}</span></td>
-        <td style="color:#64748b">${dateStr2}</td>
+        <td style="color:#cbd5e1;font-weight:700;font-size:10px">${String(i + 1).padStart(2, '0')}</td>
+        <td class="bill-no">${b.billNo.slice(-12)}</td>
+        <td style="font-weight:700;color:#0f172a">${b.customerName || "Walk-in Customer"}</td>
+        <td><span style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600">${b.items.length} items</span></td>
+        <td><span class="payment-chip">${b.paymentMode}${b.upiApp ? ` • ${b.upiApp}` : ""}</span></td>
+        <td class="amount-cell">${currency}${b.total.toLocaleString()}</td>
+        <td><span class="status-chip ${b.paymentConfirmed ? 'status-paid' : 'status-pending'}">${b.paymentConfirmed ? "✓ Paid" : "⏳ Pending"}</span></td>
+        <td style="color:#64748b;font-size:10px">${dateStr2}</td>
       </tr>`;
     });
 
-    html += `<tr class="total-row"><td colspan="5" style="text-align:right;padding-right:16px;color:#0891b2">GRAND TOTAL</td><td colspan="3" style="color:#0891b2;font-size:18px">${currency}${totalAmount.toLocaleString()}</td></tr>`;
+    html += `<tr class="total-row"><td colspan="5" style="text-align:right;padding-right:20px">GRAND TOTAL</td><td colspan="3" style="font-family:'JetBrains Mono',monospace;font-size:20px">${currency}${totalAmount.toLocaleString()}</td></tr>`;
     html += `</tbody></table></div>
 
+      <!-- Footer -->
       <div class="footer">
-        <p class="brand">Smart Mudi Khana</p>
-        <p style="margin-top:4px">Generated on ${dateStr} at ${timeStr} • Computer-generated report</p>
-        <p style="margin-top:2px;font-size:9px">This report is auto-generated and does not require a signature</p>
+        <div class="brand">⚡ Smart Mudi Khana</div>
+        <div class="gen-info">
+          Report generated on ${dateStr} at ${timeStr}<br/>
+          This is a computer-generated document and does not require a physical signature
+        </div>
+        <div class="confidential">Confidential • Internal Use Only</div>
       </div>
 
       <div class="watermark">SMK</div>
 
-      <div class="no-print" style="text-align:center;margin-top:24px;display:flex;gap:10px;justify-content:center">
-        <button onclick="window.print()" style="padding:12px 32px;font-size:13px;cursor:pointer;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:white;border-radius:10px;font-weight:700">🖨️ Print / Save PDF</button>
-        <button onclick="window.close()" style="padding:12px 32px;font-size:13px;cursor:pointer;border:1px solid #e2e8f0;background:white;border-radius:10px;font-weight:600;color:#64748b">✕ Close</button>
+      <div class="no-print" style="text-align:center;margin-top:28px;display:flex;gap:12px;justify-content:center">
+        <button onclick="window.print()" style="padding:14px 40px;font-size:13px;cursor:pointer;border:none;background:linear-gradient(145deg,#06b6d4,#0891b2);color:white;border-radius:12px;font-weight:800;letter-spacing:0.3px;box-shadow:0 4px 15px rgba(6,182,212,0.3)">🖨️ Print / Save as PDF</button>
+        <button onclick="window.close()" style="padding:14px 40px;font-size:13px;cursor:pointer;border:1px solid #e2e8f0;background:white;border-radius:12px;font-weight:700;color:#64748b;box-shadow:0 2px 8px rgba(0,0,0,0.05)">✕ Close</button>
       </div>
     </div></body></html>`;
 
