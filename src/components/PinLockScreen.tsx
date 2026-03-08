@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Lock, Delete, Shield, Mail, ArrowLeft, CheckCircle, KeyRound } from "lucide-react";
+import { Lock, Delete, Shield, Mail, ArrowLeft, CheckCircle, KeyRound, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -16,13 +16,13 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
   const [locked, setLocked] = useState(false);
   const [lockTimer, setLockTimer] = useState(0);
   const [mode, setMode] = useState<"pin" | "forgot" | "reset">("pin");
-  const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [resetStep, setResetStep] = useState<1 | 2 | 3>(1);
+  const [securityAnswer, setSecurityAnswer] = useState("");
 
   const savedPin = localStorage.getItem("smk_lockpin") || "";
+  const savedEmail = user?.email || localStorage.getItem("smk_lock_email") || "";
 
   // Lock timer countdown
   useEffect(() => {
@@ -43,13 +43,13 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
 
   const handlePinInput = useCallback((digit: string) => {
     if (locked || pin.length >= 4) return;
-    const newPin = pin + digit;
-    setPin(newPin);
+    const newPinVal = pin + digit;
+    setPin(newPinVal);
     setError("");
 
-    if (newPin.length === 4) {
+    if (newPinVal.length === 4) {
       setTimeout(() => {
-        if (newPin === savedPin) {
+        if (newPinVal === savedPin) {
           onUnlock();
         } else {
           setShake(true);
@@ -77,26 +77,20 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
   };
 
   const handleForgotPin = () => {
-    if (!user?.email) {
-      toast.error("No email found. Please login first.");
-      return;
-    }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
     setMode("forgot");
     setResetStep(1);
-    // In a real app, send email. Here we show the OTP for demo
-    toast.success(`Verification code sent to ${user.email}`);
-    // For demo: show OTP in console
-    console.log("Reset OTP:", code);
+    setSecurityAnswer("");
+    setNewPin("");
+    setConfirmPin("");
   };
 
-  const verifyOtp = () => {
-    if (otp === generatedOtp) {
+  const verifyEmail = () => {
+    const inputEmail = securityAnswer.trim().toLowerCase();
+    if (inputEmail === savedEmail.toLowerCase()) {
       setResetStep(2);
-      setOtp("");
+      setSecurityAnswer("");
     } else {
-      toast.error("Invalid verification code");
+      toast.error("Email doesn't match the registered account");
     }
   };
 
@@ -116,6 +110,8 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
       setPin("");
       setNewPin("");
       setConfirmPin("");
+      setAttempts(0);
+      setLocked(false);
       toast.success("PIN changed successfully!");
     }, 1500);
   };
@@ -130,7 +126,7 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
         <div className="absolute bottom-1/3 right-1/4 w-56 h-56 rounded-full bg-accent/5 blur-[80px]" />
         
         <div className="relative z-10 w-full max-w-sm">
-          <button onClick={() => { setMode("pin"); setOtp(""); setNewPin(""); setConfirmPin(""); }} className="flex items-center gap-2 text-muted-foreground text-sm mb-8 hover:text-foreground transition-colors">
+          <button onClick={() => { setMode("pin"); setSecurityAnswer(""); setNewPin(""); setConfirmPin(""); }} className="flex items-center gap-2 text-muted-foreground text-sm mb-8 hover:text-foreground transition-colors">
             <ArrowLeft size={16} /> Back to PIN
           </button>
 
@@ -140,31 +136,36 @@ const PinLockScreen = ({ onUnlock }: PinLockScreenProps) => {
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center glow-primary">
                   <Mail size={28} className="text-primary-foreground" />
                 </div>
-                <h2 className="font-display text-xl font-bold text-foreground">Verify Email</h2>
+                <h2 className="font-display text-xl font-bold text-foreground">Verify Your Email</h2>
                 <p className="text-xs text-muted-foreground text-center">
-                  Enter the 6-digit code sent to<br />
-                  <span className="text-primary font-medium">{user?.email || "your email"}</span>
+                  Enter your registered email to reset PIN
                 </p>
               </div>
 
               <div className="glass-card p-5 rounded-2xl space-y-4">
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
-                  className="w-full text-center text-2xl font-mono tracking-[0.5em] bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none py-3 text-foreground"
-                  placeholder="• • • • • •"
-                  autoFocus
-                />
-                <button onClick={verifyOtp} disabled={otp.length !== 6} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm disabled:opacity-40 glow-primary">
-                  Verify Code
+                <div>
+                  <label className="text-xs text-muted-foreground mb-2 block">Email Address</label>
+                  <input
+                    type="email"
+                    value={securityAnswer}
+                    onChange={e => setSecurityAnswer(e.target.value)}
+                    className="w-full text-sm bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none py-3 text-foreground placeholder:text-muted-foreground"
+                    placeholder="Enter your email"
+                    autoFocus
+                  />
+                </div>
+                {savedEmail && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-primary/5">
+                    <AlertCircle size={14} className="text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-[10px] text-muted-foreground">
+                      Hint: {savedEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3")}
+                    </p>
+                  </div>
+                )}
+                <button onClick={verifyEmail} disabled={!securityAnswer.trim()} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm disabled:opacity-40 glow-primary">
+                  Verify Email
                 </button>
               </div>
-
-              <p className="text-[10px] text-muted-foreground text-center">
-                Demo: Check browser console for the code
-              </p>
             </div>
           )}
 
