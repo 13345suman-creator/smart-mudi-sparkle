@@ -426,9 +426,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deletePaidOff = async (id: string) => {
+    const entry = paidOffCustomers.find(e => e.id === id);
     setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
     if (isOnline) {
-      try { await deleteDoc(doc(db, `users/${uid}/paidoff`, id)); } catch (e) { console.warn(e); }
+      try {
+        await deleteDoc(doc(db, `users/${uid}/paidoff`, id));
+        if (entry) await updateGlobalStorage(-estimateBytes(entry));
+      } catch (e) { console.warn(e); }
     }
   };
 
