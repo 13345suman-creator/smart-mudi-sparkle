@@ -12,9 +12,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Detect if running in Capacitor/native app
-const isCapacitorApp = () => {
-  return !!(window as any).Capacitor;
+// Detect mobile environment (PWA, Capacitor, or mobile browser)
+const isMobileOrPWA = () => {
+  const isCapacitor = !!(window as any).Capacitor;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+  const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return isCapacitor || isStandalone || isMobile;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
