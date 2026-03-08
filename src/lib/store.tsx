@@ -13,6 +13,22 @@ import {
   getDocs,
 } from "firebase/firestore";
 
+const STORAGE_LIMIT_MB = 900;
+
+function estimateStorageMB(bills: any[], udhari: any[], paidoff: any[], products: any[], settings: any): number {
+  try {
+    const totalBytes = 
+      JSON.stringify(bills).length +
+      JSON.stringify(udhari).length +
+      JSON.stringify(paidoff).length +
+      JSON.stringify(products).length +
+      JSON.stringify(settings).length;
+    return totalBytes / (1024 * 1024);
+  } catch {
+    return 0;
+  }
+}
+
 export interface BillItem {
   id: string;
   name: string;
