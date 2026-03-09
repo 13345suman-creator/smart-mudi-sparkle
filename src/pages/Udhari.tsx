@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle, UserCheck, Trash2, Download, Share2, Clock, AlertTriangle, Users, TrendingDown, FileText } from "lucide-react";
 import { useStore, type CompletedBill, type PaidOffCustomer, type UdhariEntry } from "@/lib/store";
+import { useLanguage } from "@/lib/language";
 import { toast } from "sonner";
 import { speakUdhariPayment } from "@/lib/notifications";
 
