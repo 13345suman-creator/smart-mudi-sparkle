@@ -326,6 +326,27 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     setBills(prev => [bill, ...prev]);
     const currency = localStorage.getItem("smk_currency") || "₹";
     notifyBill(bill.billNo, bill.total, currency);
+    
+    // Auto-deduct stock for each bill item
+    for (const item of bill.items) {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
+        const newStock = Math.max(0, product.stock - item.quantity);
+        const updatedProduct = { ...product, stock: newStock };
+        // Update locally
+        setProducts(prev => prev.map(p => p.id === product.id ? updatedProduct : p));
+        // Check low stock
+        const threshold = parseInt(localStorage.getItem("smk_lowstock_threshold") || "10");
+        if (newStock > 0 && newStock <= (product.lowStockAlert || threshold)) {
+          notifyLowStock(product.name, newStock);
+        }
+        // Update Firestore
+        if (isOnline) {
+          try { await setDoc(doc(db, `users/${uid}/products`, product.id), updatedProduct); } catch (e) { console.warn(e); }
+        }
+      }
+    }
+    
     if (isOnline) {
       const bytes = estimateBytes(bill);
       try {

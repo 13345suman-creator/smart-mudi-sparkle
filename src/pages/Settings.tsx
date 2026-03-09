@@ -96,7 +96,7 @@ const Settings = () => {
   const saveShopDetails = () => {
     updateSettings({ shopName, shopAddress, shopGST });
     setActiveModal(null);
-    toast.success(t("save") + " ✅");
+    toast.success(t("toast_saved"));
   };
 
 
@@ -113,12 +113,12 @@ const Settings = () => {
     if (value && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-    toast.success(value ? "Enabled ✅" : "Disabled ❌");
+    toast.success(value ? t("toast_enabled") : t("toast_disabled"));
   };
 
   const saveSecurity = () => {
     if (appLock && lockPin.length !== 4 && !localStorage.getItem("smk_lockpin")) {
-      toast.error("Please set a 4-digit PIN first");
+      toast.error(t("toast_set_pin"));
       return;
     }
     localStorage.setItem("smk_applock", String(appLock));
@@ -135,7 +135,7 @@ const Settings = () => {
       localStorage.removeItem("smk_lock_email");
     }
     setActiveModal(null);
-    toast.success(t("security") + " saved!");
+    toast.success(t("toast_security_saved"));
   };
 
   const saveAdvanced = () => {
@@ -143,7 +143,7 @@ const Settings = () => {
     localStorage.setItem("smk_currency", currency);
     localStorage.setItem("smk_autobackup", String(autoBackup));
     setActiveModal(null);
-    toast.success(t("advanced") + " saved!");
+    toast.success(t("toast_saved"));
   };
 
   const exportData = () => {
@@ -163,7 +163,7 @@ const Settings = () => {
     a.download = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Backup exported!");
+    toast.success(t("toast_backup_exported"));
   };
 
   const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,10 +178,10 @@ const Settings = () => {
         if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
         if (data.settings) localStorage.setItem("smk_settings", data.settings);
         if (data.products) localStorage.setItem("smk_products", data.products);
-        toast.success("Backup restored! Refreshing...");
+        toast.success(t("toast_backup_restored"));
         setTimeout(() => window.location.reload(), 1500);
       } catch {
-        toast.error("Invalid backup file");
+        toast.error(t("toast_invalid_backup"));
       }
     };
     reader.readAsText(file);
@@ -190,7 +190,7 @@ const Settings = () => {
   const restoreAutoBackup = () => {
     const backupStr = localStorage.getItem("smk_autobackup_data");
     if (!backupStr) {
-      toast.error("কোনো auto backup পাওয়া যায়নি");
+      toast.error(t("toast_no_auto_backup"));
       return;
     }
     try {
@@ -200,10 +200,10 @@ const Settings = () => {
       if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
       if (data.settings) localStorage.setItem("smk_settings", data.settings);
       if (data.products) localStorage.setItem("smk_products", data.products);
-      toast.success(`Auto backup restore হয়েছে! Refreshing...`);
+      toast.success(t("toast_auto_backup_restored"));
       setTimeout(() => window.location.reload(), 1500);
     } catch {
-      toast.error("Auto backup corrupted");
+      toast.error(t("toast_auto_backup_corrupted"));
     }
   };
 
@@ -212,7 +212,7 @@ const Settings = () => {
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith("smk_")) localStorage.removeItem(key);
       });
-      toast.success("All data cleared! Refreshing...");
+      toast.success(t("toast_all_cleared"));
       setTimeout(() => window.location.reload(), 1500);
     }
   };

@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Search, Plus, X, Phone, Eye, IndianRupee, ArrowDownCircle, UserCheck, Trash2, Download, Share2, Clock, AlertTriangle, Users, TrendingDown, FileText } from "lucide-react";
 import { useStore, type CompletedBill, type PaidOffCustomer, type UdhariEntry } from "@/lib/store";
+import { useLanguage } from "@/lib/language";
 import { toast } from "sonner";
 import { speakUdhariPayment } from "@/lib/notifications";
 
 const Udhari = () => {
   const { udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, bills } = useStore();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showPartial, setShowPartial] = useState<typeof udhariEntries[0] | null>(null);
@@ -99,7 +101,7 @@ const Udhari = () => {
       deletePaidOff(deleteConfirm.id);
       setShowPaidOff(null);
     }
-    toast.success(`${deleteConfirm.name} deleted successfully`);
+    toast.success(`${deleteConfirm.name} ${t("toast_delete_success")}`);
     setDeleteConfirm(null);
   };
 
@@ -206,9 +208,9 @@ th:nth-child(3){text-align:right}
     }
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard!");
+      toast.success(t("toast_copied"));
     } catch {
-      toast.error("Share not supported");
+      toast.error(t("toast_share_failed"));
     }
   };
 
