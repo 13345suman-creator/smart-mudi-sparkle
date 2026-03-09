@@ -113,7 +113,7 @@ const Settings = () => {
     if (value && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-    toast.success(value ? "Enabled ✅" : "Disabled ❌");
+    toast.success(value ? t("toast_enabled") : t("toast_disabled"));
   };
 
   const saveSecurity = () => {
