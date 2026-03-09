@@ -28,19 +28,6 @@ const Login = () => {
     }
   }, [user, navigate]);
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    setError("");
-    setSuccess("");
-    setShowSpamWarning(false);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
