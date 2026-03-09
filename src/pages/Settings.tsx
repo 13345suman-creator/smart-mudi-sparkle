@@ -135,7 +135,7 @@ const Settings = () => {
       localStorage.removeItem("smk_lock_email");
     }
     setActiveModal(null);
-    toast.success(t("security") + " saved!");
+    toast.success(t("toast_security_saved"));
   };
 
   const saveAdvanced = () => {
