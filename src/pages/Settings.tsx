@@ -163,7 +163,7 @@ const Settings = () => {
     a.download = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Backup exported!");
+    toast.success(t("toast_backup_exported"));
   };
 
   const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
