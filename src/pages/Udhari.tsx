@@ -101,7 +101,7 @@ const Udhari = () => {
       deletePaidOff(deleteConfirm.id);
       setShowPaidOff(null);
     }
-    toast.success(`${deleteConfirm.name} deleted successfully`);
+    toast.success(`${deleteConfirm.name} ${t("toast_delete_success")}`);
     setDeleteConfirm(null);
   };
 
