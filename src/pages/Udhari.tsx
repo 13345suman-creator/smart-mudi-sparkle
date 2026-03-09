@@ -208,9 +208,9 @@ th:nth-child(3){text-align:right}
     }
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard!");
+      toast.success(t("toast_copied"));
     } catch {
-      toast.error("Share not supported");
+      toast.error(t("toast_share_failed"));
     }
   };
 

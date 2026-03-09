@@ -101,9 +101,8 @@ const Stock = () => {
 
   const handleEdit = async () => {
     if (!editingProduct) return;
-    // Check duplicate (exclude self)
     if (isDuplicate(editingProduct.name, editingProduct.barcode, editingProduct.id)) {
-      toast.error("এই নামে বা barcode এ অন্য product আগে থেকেই আছে!");
+      toast.error(t("toast_duplicate_product"));
       return;
     }
     try {
@@ -111,9 +110,9 @@ const Stock = () => {
       setSelectedProduct({ ...editingProduct });
       setEditingProduct(null);
       setEditCustomUnit(false);
-      toast.success("Product updated!");
+      toast.success(t("toast_product_updated"));
     } catch (err: any) {
-      toast.error(err.message || "Failed to update");
+      toast.error(err.message || t("toast_failed_update"));
     }
   };
 
@@ -122,9 +121,9 @@ const Stock = () => {
       await deleteProduct(id);
       setSelectedProduct(null);
       setDeleteConfirm(null);
-      toast.success("Product deleted!");
+      toast.success(t("toast_product_deleted"));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("toast_failed_delete"));
     }
   };
 
@@ -134,12 +133,12 @@ const Stock = () => {
       for (const id of ids) {
         await deleteProduct(id);
       }
-      toast.success(`${ids.length} টি product delete হয়েছে!`);
+      toast.success(`${ids.length} ${t("toast_products_deleted")}`);
       setSelectedIds(new Set());
       setSelectionMode(false);
       setBulkDeleteConfirm(false);
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("toast_failed_delete"));
     }
   };
 
