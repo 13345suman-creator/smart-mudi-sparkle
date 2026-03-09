@@ -68,12 +68,12 @@ const Stock = () => {
 
   const handleAdd = async () => {
     if (!newProduct.name || !newProduct.sellPrice || !newProduct.costPrice || !newProduct.stock || newProduct.stock <= 0 || !newProduct.unit) {
-      toast.error("Name, Cost Price, Sell Price, Stock & Unit are required!");
+      toast.error(t("toast_fill_required"));
       return;
     }
     // Check duplicate
     if (isDuplicate(newProduct.name || "", newProduct.barcode || "")) {
-      toast.error("এই নামে বা barcode এ product আগে থেকেই আছে!");
+      toast.error(t("toast_duplicate_product"));
       return;
     }
     try {
@@ -93,9 +93,9 @@ const Stock = () => {
       setNewProduct({ unit: "kg", imageUrl: "", lowStockAlert: 5 });
       setCustomUnit(false);
       setShowAdd(false);
-      toast.success("Product added!");
+      toast.success(t("toast_product_added"));
     } catch (err: any) {
-      toast.error(err.message || "Failed to add product");
+      toast.error(err.message || t("toast_failed_add"));
     }
   };
 
