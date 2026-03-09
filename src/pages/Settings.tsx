@@ -143,7 +143,7 @@ const Settings = () => {
     localStorage.setItem("smk_currency", currency);
     localStorage.setItem("smk_autobackup", String(autoBackup));
     setActiveModal(null);
-    toast.success(t("advanced") + " saved!");
+    toast.success(t("toast_saved"));
   };
 
   const exportData = () => {
