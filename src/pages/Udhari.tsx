@@ -7,6 +7,7 @@ import { speakUdhariPayment } from "@/lib/notifications";
 
 const Udhari = () => {
   const { udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff, bills } = useStore();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showPartial, setShowPartial] = useState<typeof udhariEntries[0] | null>(null);
