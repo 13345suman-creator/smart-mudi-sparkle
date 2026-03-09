@@ -190,7 +190,7 @@ const Settings = () => {
   const restoreAutoBackup = () => {
     const backupStr = localStorage.getItem("smk_autobackup_data");
     if (!backupStr) {
-      toast.error("কোনো auto backup পাওয়া যায়নি");
+      toast.error(t("toast_no_auto_backup"));
       return;
     }
     try {
@@ -200,10 +200,10 @@ const Settings = () => {
       if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
       if (data.settings) localStorage.setItem("smk_settings", data.settings);
       if (data.products) localStorage.setItem("smk_products", data.products);
-      toast.success(`Auto backup restore হয়েছে! Refreshing...`);
+      toast.success(t("toast_auto_backup_restored"));
       setTimeout(() => window.location.reload(), 1500);
     } catch {
-      toast.error("Auto backup corrupted");
+      toast.error(t("toast_auto_backup_corrupted"));
     }
   };
 
