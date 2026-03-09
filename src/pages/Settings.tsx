@@ -146,6 +146,10 @@ const Settings = () => {
     localStorage.setItem("smk_lowstock_threshold", String(lowStockThreshold));
     localStorage.setItem("smk_currency", currency);
     localStorage.setItem("smk_autobackup", String(autoBackup));
+    localStorage.setItem("smk_date_format", dateFormat);
+    localStorage.setItem("smk_bill_format", billFormat);
+    localStorage.setItem("smk_auto_clear_bills", String(autoClearOldBills));
+    localStorage.setItem("smk_clear_after_days", String(clearAfterDays));
     setActiveModal(null);
     toast.success(t("toast_saved"));
   };

@@ -328,24 +328,38 @@ const Billing = () => {
   };
 
   const shareBill = async (bill: CompletedBill) => {
-    const text = `🧾 ${bill.billNo}\n📅 ${formatDate(bill.date)}\n🏪 ${settings.shopName}\n\n${bill.items.map(i => `${i.name} × ${i.quantity} ${i.unit} = ₹${Math.round(i.money * 100) / 100}`).join('\n')}\n\n💰 Total: ₹${bill.total}\n💳 Payment: ${bill.paymentMode.toUpperCase()}${bill.upiApp ? ` (${bill.upiApp})` : ''}\n\nThank you! 🙏`;
+    const lang = localStorage.getItem("smk_language") || "en";
+    const thankYou = lang === "bn" ? "ধন্যবাদ!" : lang === "hi" ? "धन्यवाद!" : "Thank you!";
+    const text = `🧾 ${bill.billNo}\n📅 ${formatDate(bill.date)}\n🏪 ${settings.shopName}\n\n${bill.items.map(i => `${i.name} × ${i.quantity} ${i.unit} = ₹${Math.round(i.money * 100) / 100}`).join('\n')}\n\n💰 Total: ₹${bill.total}\n💳 Payment: ${bill.paymentMode.toUpperCase()}${bill.upiApp ? ` (${bill.upiApp})` : ''}\n\n${thankYou} 🙏`;
     
-    // Always try native share first, with proper fallback
-    if (navigator.share) {
+    // Try native share first
+    if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: bill.billNo, text });
-        return; // Success, stop here
+        return;
       } catch (err: any) {
-        // User cancelled or share failed - only fallback to clipboard if it's a real error
-        if (err?.name === 'AbortError') return; // User cancelled, do nothing
+        if (err?.name === 'AbortError') return;
       }
     }
-    // Fallback: copy to clipboard
+    // Fallback: try clipboard, then manual copy
     try {
       await navigator.clipboard.writeText(text);
       const { toast } = await import("sonner");
+      const msg = lang === "bn" ? "ক্লিপবোর্ডে কপি হয়েছে! WhatsApp এ পেস্ট করুন" : lang === "hi" ? "क्लिपबोर्ड पर कॉपी हो गया! WhatsApp पर पेस्ट करें" : "Copied! Paste in WhatsApp or any app";
+      toast.success(msg);
+    } catch {
+      // Last resort: create a temporary textarea for manual copy
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      const { toast } = await import("sonner");
       toast.success("Copied to clipboard!");
-    } catch {}
+    }
   };
 
   // Filter bills by bill ID search
