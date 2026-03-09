@@ -212,7 +212,7 @@ const Settings = () => {
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith("smk_")) localStorage.removeItem(key);
       });
-      toast.success("All data cleared! Refreshing...");
+      toast.success(t("toast_all_cleared"));
       setTimeout(() => window.location.reload(), 1500);
     }
   };
