@@ -7,7 +7,7 @@ import { Store, Sparkles, Mail, Lock, User, ArrowLeft, CheckCircle, Eye, EyeOff,
 type AuthMode = "login" | "signup" | "reset";
 
 const Login = () => {
-  const { user, loginWithGoogle, loginWithEmail, signupWithEmail, resetPassword } = useAuth();
+  const { user, loginWithEmail, signupWithEmail, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
