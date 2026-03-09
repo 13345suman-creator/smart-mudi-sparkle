@@ -515,17 +515,6 @@ const Settings = () => {
           {activeModal === "advanced" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{t("low_stock_threshold")}</label>
-                <div className="flex items-center gap-2">
-                  {[5, 10, 20, 50].map(v => (
-                    <button key={v} onClick={() => setLowStockThreshold(v)} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${lowStockThreshold === v ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
-                      {v} items
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <label className="text-xs text-muted-foreground mb-1 block">{t("currency")}</label>
                 <div className="flex items-center gap-2">
                   {["₹", "$", "€", "£"].map(c => (
@@ -547,16 +536,69 @@ const Settings = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("date_format")}</label>
+                <div className="flex items-center gap-2">
+                  {[
+                    { id: "dd/mm/yyyy", label: "DD/MM/YYYY" },
+                    { id: "mm/dd/yyyy", label: "MM/DD/YYYY" },
+                    { id: "yyyy-mm-dd", label: "YYYY-MM-DD" },
+                  ].map(f => (
+                    <button key={f.id} onClick={() => { setDateFormat(f.id); localStorage.setItem("smk_date_format", f.id); }} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${dateFormat === f.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("bill_format")}</label>
+                <div className="flex items-center gap-2">
+                  {[
+                    { id: "compact", label: t("compact") },
+                    { id: "detailed", label: t("detailed") },
+                  ].map(f => (
+                    <button key={f.id} onClick={() => { setBillFormat(f.id); localStorage.setItem("smk_bill_format", f.id); }} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${billFormat === f.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between glass-card p-4 rounded-xl">
                 <div className="flex items-center gap-3">
                   <RefreshCw size={18} className="text-primary" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{t("auto_backup")}</p>
-                    <p className="text-[10px] text-muted-foreground">প্রতি ৩০ মিনিটে auto backup</p>
+                    <p className="text-[10px] text-muted-foreground">{t("auto_backup_desc")}</p>
                   </div>
                 </div>
                 <ToggleSwitch value={autoBackup} onChange={setAutoBackup} />
               </div>
+
+              <div className="flex items-center justify-between glass-card p-4 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Trash2 size={18} className="text-warning" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{t("auto_clear_bills")}</p>
+                    <p className="text-[10px] text-muted-foreground">{t("auto_clear_bills_desc")}</p>
+                  </div>
+                </div>
+                <ToggleSwitch value={autoClearOldBills} onChange={(v) => { setAutoClearOldBills(v); localStorage.setItem("smk_auto_clear_bills", String(v)); }} />
+              </div>
+
+              {autoClearOldBills && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t("clear_after_days")}</label>
+                  <div className="flex items-center gap-2">
+                    {[30, 60, 90, 180].map(d => (
+                      <button key={d} onClick={() => { setClearAfterDays(d); localStorage.setItem("smk_clear_after_days", String(d)); }} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${clearAfterDays === d ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
+                        {d} {t("days")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <button onClick={saveAdvanced} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                 <Save size={14} /> {t("save")} {t("advanced")}
