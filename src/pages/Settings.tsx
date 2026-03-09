@@ -96,7 +96,7 @@ const Settings = () => {
   const saveShopDetails = () => {
     updateSettings({ shopName, shopAddress, shopGST });
     setActiveModal(null);
-    toast.success(t("save") + " ✅");
+    toast.success(t("toast_saved"));
   };
 
 
