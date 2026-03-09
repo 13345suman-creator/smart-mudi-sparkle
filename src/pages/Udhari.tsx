@@ -198,7 +198,7 @@ th:nth-child(3){text-align:right}
     
     const text = `📋 Udhari ${isCleared ? '✅ Cleared' : '⏳ Pending'}\n\n👤 ${entry.name}\n📱 ${entry.phone}\n\n💰 Total Billed: ₹${totalBilled.toLocaleString()}\n✅ Total Paid: ₹${totalPaid.toLocaleString()}\n${!isCleared ? `⏳ Remaining: ₹${remaining.toLocaleString()}\n` : ''}\n${payments.length > 0 ? `💳 Payments:\n${payments.map(p => `  ₹${p.amount} via ${p.method} on ${p.date}`).join('\n')}` : ''}`;
     
-    if (navigator.share) {
+    if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: `Udhari - ${entry.name}`, text });
         return;
@@ -208,9 +208,19 @@ th:nth-child(3){text-align:right}
     }
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(t("toast_copied"));
+      const lang = localStorage.getItem("smk_language") || "en";
+      const msg = lang === "bn" ? "ক্লিপবোর্ডে কপি হয়েছে! WhatsApp এ পেস্ট করুন" : lang === "hi" ? "क्लिपबोर्ड पर कॉपी हो गया! WhatsApp पर पेस्ट करें" : "Copied! Paste in WhatsApp or any app";
+      toast.success(msg);
     } catch {
-      toast.error(t("toast_share_failed"));
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      toast.success(t("toast_copied"));
     }
   };
 
