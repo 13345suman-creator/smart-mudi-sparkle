@@ -168,6 +168,16 @@ const translations: Record<string, Record<Lang, string>> = {
   "account_created": { bn: "✅ Account তৈরি হয়েছে! Home page এ যাচ্ছে...", hi: "✅ अकाउंट बन गया! होम पेज पर जा रहे हैं...", en: "✅ Account created! Redirecting to home..." },
   "reset_email_sent": { bn: "✅ Password reset email পাঠানো হয়েছে! Email check করুন।", hi: "✅ पासवर्ड रीसेट ईमेल भेजा गया! ईमेल चेक करें।", en: "✅ Password reset email sent! Check your email." },
   "reset_spam_warning": { bn: "⚠️ Email না পেলে Spam/Junk ফোল্ডার check করুন।", hi: "⚠️ ईमेल न मिले तो Spam/Junk फ़ोल्डर चेक करें।", en: "⚠️ If you don't see the email, check your Spam/Junk folder." },
+  "login_secure_note": { bn: "🔒 আপনার ডাটা সুরক্ষিত ও এনক্রিপ্টেড", hi: "🔒 आपका डेटा सुरक्षित और एन्क्रिप्टेड है", en: "🔒 Your data is secure & encrypted" },
+  "date_format": { bn: "তারিখ ফরম্যাট", hi: "तिथि प्रारूप", en: "Date Format" },
+  "bill_format": { bn: "বিল ফরম্যাট", hi: "बिल प्रारूप", en: "Bill Format" },
+  "compact": { bn: "সংক্ষিপ্ত", hi: "संक्षिप्त", en: "Compact" },
+  "detailed": { bn: "বিস্তারিত", hi: "विस्तृत", en: "Detailed" },
+  "auto_backup_desc": { bn: "প্রতি ৩০ মিনিটে অটো ব্যাকআপ", hi: "हर 30 मिनट में ऑटो बैकअप", en: "Auto backup every 30 minutes" },
+  "auto_clear_bills": { bn: "পুরানো বিল অটো ক্লিয়ার", hi: "पुराने बिल ऑटो क्लियर", en: "Auto Clear Old Bills" },
+  "auto_clear_bills_desc": { bn: "নির্দিষ্ট দিন পর পুরানো বিল মুছে যাবে", hi: "निश्चित दिनों बाद पुराने बिल हटेंगे", en: "Old bills will be deleted after set days" },
+  "clear_after_days": { bn: "কত দিন পর ক্লিয়ার", hi: "कितने दिन बाद क्लियर", en: "Clear After" },
+  "days": { bn: "দিন", hi: "दिन", en: "days" },
 };
 
 interface LanguageContextType {
