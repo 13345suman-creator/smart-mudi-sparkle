@@ -178,10 +178,10 @@ const Settings = () => {
         if (data.paidoff) localStorage.setItem("smk_paidoff", data.paidoff);
         if (data.settings) localStorage.setItem("smk_settings", data.settings);
         if (data.products) localStorage.setItem("smk_products", data.products);
-        toast.success("Backup restored! Refreshing...");
+        toast.success(t("toast_backup_restored"));
         setTimeout(() => window.location.reload(), 1500);
       } catch {
-        toast.error("Invalid backup file");
+        toast.error(t("toast_invalid_backup"));
       }
     };
     reader.readAsText(file);
