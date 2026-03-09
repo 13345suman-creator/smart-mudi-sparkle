@@ -118,7 +118,7 @@ const Settings = () => {
 
   const saveSecurity = () => {
     if (appLock && lockPin.length !== 4 && !localStorage.getItem("smk_lockpin")) {
-      toast.error("Please set a 4-digit PIN first");
+      toast.error(t("toast_set_pin"));
       return;
     }
     localStorage.setItem("smk_applock", String(appLock));
