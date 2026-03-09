@@ -58,6 +58,10 @@ const Settings = () => {
   const [lowStockThreshold, setLowStockThreshold] = useState(() => parseInt(localStorage.getItem("smk_lowstock_threshold") || "10"));
   const [currency, setCurrency] = useState(() => localStorage.getItem("smk_currency") || "₹");
   const [autoBackup, setAutoBackup] = useState(() => localStorage.getItem("smk_autobackup") === "true");
+  const [dateFormat, setDateFormat] = useState(() => localStorage.getItem("smk_date_format") || "dd/mm/yyyy");
+  const [billFormat, setBillFormat] = useState(() => localStorage.getItem("smk_bill_format") || "detailed");
+  const [autoClearOldBills, setAutoClearOldBills] = useState(() => localStorage.getItem("smk_auto_clear_bills") === "true");
+  const [clearAfterDays, setClearAfterDays] = useState(() => parseInt(localStorage.getItem("smk_clear_after_days") || "90"));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
