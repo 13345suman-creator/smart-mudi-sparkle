@@ -20,6 +20,9 @@ const THEMES: ThemeOption[] = [
   { id: "aurora-green", name: "Aurora Green", nameHi: "অরোরা গ্রীন", colors: ["#34d399", "#22d3ee", "#0a1612"], gradient: "linear-gradient(135deg, #34d399, #22d3ee)" },
   { id: "velvet-purple", name: "Velvet Purple", nameHi: "ভেলভেট পার্পল", colors: ["#a78bfa", "#3b82f6", "#0d0a1a"], gradient: "linear-gradient(135deg, #a78bfa, #3b82f6)" },
   { id: "molten-lava", name: "Molten Lava", nameHi: "মোল্টেন লাভা", colors: ["#ef4444", "#f97316", "#1a0a08"], gradient: "linear-gradient(135deg, #ef4444, #f97316)" },
+  { id: "peach-dream", name: "Peach Dream 🍑", nameHi: "পীচ ড্রিম", colors: ["#f97066", "#f472b6", "#fde8e0"], gradient: "linear-gradient(135deg, #f97066, #f472b6)" },
+  { id: "sky-breeze", name: "Sky Breeze 🌤️", nameHi: "স্কাই ব্রিজ", colors: ["#38bdf8", "#2dd4bf", "#e0f2fe"], gradient: "linear-gradient(135deg, #38bdf8, #2dd4bf)" },
+  { id: "mint-fresh", name: "Mint Fresh 🌿", nameHi: "মিন্ট ফ্রেশ", colors: ["#34d399", "#84cc16", "#e6f7ef"], gradient: "linear-gradient(135deg, #34d399, #84cc16)" },
 ];
 
 const Settings = () => {
