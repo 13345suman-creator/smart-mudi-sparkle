@@ -591,24 +591,11 @@ const Settings = () => {
                   <Trash2 size={18} className="text-warning" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{t("auto_clear_bills")}</p>
-                    <p className="text-[10px] text-muted-foreground">{t("auto_clear_bills_desc")}</p>
+                    <p className="text-[10px] text-muted-foreground">45 দিন পুরোনো bills auto delete হবে</p>
                   </div>
                 </div>
-                <ToggleSwitch value={autoClearOldBills} onChange={(v) => { setAutoClearOldBills(v); localStorage.setItem("smk_auto_clear_bills", String(v)); }} />
+                <ToggleSwitch value={autoClearOldBills} onChange={(v) => { setAutoClearOldBills(v); localStorage.setItem("smk_auto_clear_bills", String(v)); localStorage.setItem("smk_clear_after_days", "45"); }} />
               </div>
-
-              {autoClearOldBills && (
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">{t("clear_after_days")}</label>
-                  <div className="flex items-center gap-2">
-                    {[30, 60, 90, 180].map(d => (
-                      <button key={d} onClick={() => { setClearAfterDays(d); localStorage.setItem("smk_clear_after_days", String(d)); }} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${clearAfterDays === d ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
-                        {d} {t("days")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <button onClick={saveAdvanced} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                 <Save size={14} /> {t("save")} {t("advanced")}
