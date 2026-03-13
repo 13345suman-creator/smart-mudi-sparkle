@@ -195,9 +195,25 @@ const Settings = () => {
     toast.success(t("toast_backup_exported"));
   };
 
-  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const importData = async (e?: React.ChangeEvent<HTMLInputElement>) => {
+    let file: File | undefined;
+    
+    // Try File System Access API first (user chooses file location)
+    if ('showOpenFilePicker' in window && !e) {
+      try {
+        const [handle] = await (window as any).showOpenFilePicker({
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+          multiple: false,
+        });
+        file = await handle.getFile();
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    
+    if (!file && e) file = e.target.files?.[0];
     if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
