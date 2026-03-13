@@ -156,7 +156,7 @@ const Settings = () => {
     toast.success(t("toast_saved"));
   };
 
-  const exportData = () => {
+  const exportData = async () => {
     const data = {
       bills: localStorage.getItem("smk_bills"),
       udhari: localStorage.getItem("smk_udhari"),
@@ -167,10 +167,29 @@ const Settings = () => {
       version: "1.0",
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const fileName = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
+    
+    // Try File System Access API (lets user choose save location)
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success(t("toast_backup_exported"));
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    // Fallback: direct download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(t("toast_backup_exported"));
