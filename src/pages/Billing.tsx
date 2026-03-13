@@ -22,7 +22,15 @@ const generateBillNo = () => {
 
 const formatDate = (d: string | Date) => {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const fmt = localStorage.getItem("smk_date_format") || "dd/mm/yyyy";
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  
+  if (fmt === "mm/dd/yyyy") return `${month}/${day}/${year} ${time}`;
+  if (fmt === "yyyy-mm-dd") return `${year}-${month}-${day} ${time}`;
+  return `${day}/${month}/${year} ${time}`;
 };
 
 const generateBillSlipHTML = (bill: CompletedBill, shopName: string, shopAddress: string, shopGST: string) => {
@@ -577,7 +585,9 @@ const Billing = () => {
                 {billSearch && <button onClick={() => setBillSearch("")}><X size={14} className="text-muted-foreground" /></button>}
               </div>
 
-              {filteredBills.map(bill => (
+              {filteredBills.map(bill => {
+                const billFmt = localStorage.getItem("smk_bill_format") || "detailed";
+                return (
                 <div key={bill.id} className="glass-card p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
@@ -586,11 +596,18 @@ const Billing = () => {
                         <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${bill.paymentConfirmed ? 'bg-success' : 'bg-warning animate-pulse'}`} />
                       </div>
                       <p className="text-sm font-semibold text-foreground">₹{bill.total}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatDate(bill.date)} • {bill.paymentMode.toUpperCase()}
-                        {bill.upiApp ? ` (${bill.upiApp})` : ''}
-                        {bill.customerName ? ` • ${bill.customerName}` : ''}
-                      </p>
+                      {billFmt === "detailed" && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDate(bill.date)} • {bill.paymentMode.toUpperCase()}
+                          {bill.upiApp ? ` (${bill.upiApp})` : ''}
+                          {bill.customerName ? ` • ${bill.customerName}` : ''}
+                        </p>
+                      )}
+                      {billFmt === "compact" && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDate(bill.date)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       {!bill.paymentConfirmed && (
@@ -601,16 +618,19 @@ const Billing = () => {
                       <button onClick={() => setViewingBill(bill)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center" title="View">
                         <Eye size={14} className="text-foreground" />
                       </button>
-                      <button onClick={() => downloadBillPDF(bill)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center" title="Download PDF">
-                        <Download size={14} className="text-foreground" />
-                      </button>
+                      {billFmt === "detailed" && (
+                        <button onClick={() => downloadBillPDF(bill)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center" title="Download PDF">
+                          <Download size={14} className="text-foreground" />
+                        </button>
+                      )}
                       <button onClick={() => shareBill(bill)} className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center" title="Share">
                         <Share2 size={14} className="text-primary-foreground" />
                       </button>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {filteredBills.length === 0 && billSearch && (
                 <p className="text-xs text-muted-foreground text-center py-4">No bills found for "{billSearch}"</p>
               )}

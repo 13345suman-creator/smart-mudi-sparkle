@@ -239,6 +239,124 @@
     --sidebar-ring: 12 90% 55%;
     --theme-gradient: linear-gradient(135deg, hsl(12 90% 50%), hsl(35 90% 50%));
   }
+
+  /* === PASTEL LIGHT THEMES (no black) === */
+  [data-theme="peach-dream"] {
+    --background: 25 60% 95%;
+    --foreground: 25 40% 15%;
+    --card: 25 55% 92%;
+    --card-foreground: 25 40% 15%;
+    --popover: 25 50% 93%;
+    --popover-foreground: 25 40% 15%;
+    --primary: 15 85% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 25 40% 88%;
+    --secondary-foreground: 25 35% 25%;
+    --muted: 25 30% 90%;
+    --muted-foreground: 25 15% 45%;
+    --accent: 340 60% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 25 30% 85%;
+    --input: 25 30% 85%;
+    --ring: 15 85% 55%;
+    --radius: 0.75rem;
+    --success: 155 65% 38%;
+    --warning: 42 90% 50%;
+    --info: 210 75% 50%;
+    --glass-bg: 25 50% 94% / 0.8;
+    --glass-border: 25 30% 82% / 0.6;
+    --glow-primary: 15 85% 55% / 0.2;
+    --glow-accent: 340 60% 60% / 0.2;
+    --sidebar-background: 25 55% 93%;
+    --sidebar-foreground: 25 35% 25%;
+    --sidebar-primary: 15 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 40% 88%;
+    --sidebar-accent-foreground: 25 35% 25%;
+    --sidebar-border: 25 30% 85%;
+    --sidebar-ring: 15 85% 55%;
+    --theme-gradient: linear-gradient(135deg, hsl(15 85% 55%), hsl(340 60% 60%));
+  }
+
+  [data-theme="sky-breeze"] {
+    --background: 200 50% 95%;
+    --foreground: 210 40% 15%;
+    --card: 200 45% 92%;
+    --card-foreground: 210 40% 15%;
+    --popover: 200 42% 93%;
+    --popover-foreground: 210 40% 15%;
+    --primary: 200 85% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 35% 88%;
+    --secondary-foreground: 210 30% 25%;
+    --muted: 200 25% 90%;
+    --muted-foreground: 210 15% 45%;
+    --accent: 170 65% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 25% 85%;
+    --input: 200 25% 85%;
+    --ring: 200 85% 48%;
+    --radius: 0.75rem;
+    --success: 155 65% 38%;
+    --warning: 42 90% 50%;
+    --info: 210 75% 50%;
+    --glass-bg: 200 42% 94% / 0.8;
+    --glass-border: 200 25% 82% / 0.6;
+    --glow-primary: 200 85% 48% / 0.2;
+    --glow-accent: 170 65% 45% / 0.2;
+    --sidebar-background: 200 45% 93%;
+    --sidebar-foreground: 210 30% 25%;
+    --sidebar-primary: 200 85% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 35% 88%;
+    --sidebar-accent-foreground: 210 30% 25%;
+    --sidebar-border: 200 25% 85%;
+    --sidebar-ring: 200 85% 48%;
+    --theme-gradient: linear-gradient(135deg, hsl(200 85% 48%), hsl(170 65% 45%));
+  }
+
+  [data-theme="mint-fresh"] {
+    --background: 145 40% 95%;
+    --foreground: 150 35% 15%;
+    --card: 145 35% 92%;
+    --card-foreground: 150 35% 15%;
+    --popover: 145 32% 93%;
+    --popover-foreground: 150 35% 15%;
+    --primary: 155 70% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 145 28% 88%;
+    --secondary-foreground: 150 28% 25%;
+    --muted: 145 20% 90%;
+    --muted-foreground: 150 12% 45%;
+    --accent: 85 55% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 145 22% 85%;
+    --input: 145 22% 85%;
+    --ring: 155 70% 40%;
+    --radius: 0.75rem;
+    --success: 155 65% 38%;
+    --warning: 42 90% 50%;
+    --info: 210 75% 50%;
+    --glass-bg: 145 32% 94% / 0.8;
+    --glass-border: 145 22% 82% / 0.6;
+    --glow-primary: 155 70% 40% / 0.2;
+    --glow-accent: 85 55% 45% / 0.2;
+    --sidebar-background: 145 35% 93%;
+    --sidebar-foreground: 150 28% 25%;
+    --sidebar-primary: 155 70% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 145 28% 88%;
+    --sidebar-accent-foreground: 150 28% 25%;
+    --sidebar-border: 145 22% 85%;
+    --sidebar-ring: 155 70% 40%;
+    --theme-gradient: linear-gradient(135deg, hsl(155 70% 40%), hsl(85 55% 45%));
+  }
 }
 
 @layer base {

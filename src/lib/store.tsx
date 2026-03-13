@@ -199,6 +199,36 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => { saveLocal(LS_KEYS.settings, settings); }, [settings]);
   useEffect(() => { saveLocal(LS_KEYS.products, products); }, [products]);
 
+  // Auto-clear old bills (45 days)
+  useEffect(() => {
+    const autoClear = localStorage.getItem("smk_auto_clear_bills") === "true";
+    if (!autoClear || bills.length === 0) return;
+    
+    const cutoffMs = 45 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const oldBills = bills.filter(b => now - new Date(b.date).getTime() > cutoffMs);
+    
+    if (oldBills.length > 0) {
+      // Auto backup before clearing
+      const backupData = {
+        clearedBills: oldBills,
+        clearedDate: new Date().toISOString(),
+      };
+      const existing = localStorage.getItem("smk_auto_cleared_backup");
+      const prev = existing ? JSON.parse(existing) : [];
+      localStorage.setItem("smk_auto_cleared_backup", JSON.stringify([...prev, ...backupData.clearedBills].slice(-200)));
+      
+      setBills(prev => prev.filter(b => now - new Date(b.date).getTime() <= cutoffMs));
+      
+      // Delete from Firestore too
+      if (uid) {
+        oldBills.forEach(async (b) => {
+          try { await deleteDoc(doc(db, `users/${uid}/bills`, b.id)); } catch {}
+        });
+      }
+    }
+  }, [bills.length, uid]);
+
   // Listen to global storage counter (works for all users)
   useEffect(() => {
     const unsub = onSnapshot(doc(db, GLOBAL_STORAGE_DOC), (snap) => {

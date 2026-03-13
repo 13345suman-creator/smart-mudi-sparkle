@@ -20,6 +20,9 @@ const THEMES: ThemeOption[] = [
   { id: "aurora-green", name: "Aurora Green", nameHi: "অরোরা গ্রীন", colors: ["#34d399", "#22d3ee", "#0a1612"], gradient: "linear-gradient(135deg, #34d399, #22d3ee)" },
   { id: "velvet-purple", name: "Velvet Purple", nameHi: "ভেলভেট পার্পল", colors: ["#a78bfa", "#3b82f6", "#0d0a1a"], gradient: "linear-gradient(135deg, #a78bfa, #3b82f6)" },
   { id: "molten-lava", name: "Molten Lava", nameHi: "মোল্টেন লাভা", colors: ["#ef4444", "#f97316", "#1a0a08"], gradient: "linear-gradient(135deg, #ef4444, #f97316)" },
+  { id: "peach-dream", name: "Peach Dream 🍑", nameHi: "পীচ ড্রিম", colors: ["#f97066", "#f472b6", "#fde8e0"], gradient: "linear-gradient(135deg, #f97066, #f472b6)" },
+  { id: "sky-breeze", name: "Sky Breeze 🌤️", nameHi: "স্কাই ব্রিজ", colors: ["#38bdf8", "#2dd4bf", "#e0f2fe"], gradient: "linear-gradient(135deg, #38bdf8, #2dd4bf)" },
+  { id: "mint-fresh", name: "Mint Fresh 🌿", nameHi: "মিন্ট ফ্রেশ", colors: ["#34d399", "#84cc16", "#e6f7ef"], gradient: "linear-gradient(135deg, #34d399, #84cc16)" },
 ];
 
 const Settings = () => {
@@ -61,7 +64,6 @@ const Settings = () => {
   const [dateFormat, setDateFormat] = useState(() => localStorage.getItem("smk_date_format") || "dd/mm/yyyy");
   const [billFormat, setBillFormat] = useState(() => localStorage.getItem("smk_bill_format") || "detailed");
   const [autoClearOldBills, setAutoClearOldBills] = useState(() => localStorage.getItem("smk_auto_clear_bills") === "true");
-  const [clearAfterDays, setClearAfterDays] = useState(() => parseInt(localStorage.getItem("smk_clear_after_days") || "90"));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,12 +151,12 @@ const Settings = () => {
     localStorage.setItem("smk_date_format", dateFormat);
     localStorage.setItem("smk_bill_format", billFormat);
     localStorage.setItem("smk_auto_clear_bills", String(autoClearOldBills));
-    localStorage.setItem("smk_clear_after_days", String(clearAfterDays));
+    localStorage.setItem("smk_clear_after_days", "45");
     setActiveModal(null);
     toast.success(t("toast_saved"));
   };
 
-  const exportData = () => {
+  const exportData = async () => {
     const data = {
       bills: localStorage.getItem("smk_bills"),
       udhari: localStorage.getItem("smk_udhari"),
@@ -165,18 +167,53 @@ const Settings = () => {
       version: "1.0",
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const fileName = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
+    
+    // Try File System Access API (lets user choose save location)
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success(t("toast_backup_exported"));
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    // Fallback: direct download
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(t("toast_backup_exported"));
   };
 
-  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const importData = async (e?: React.ChangeEvent<HTMLInputElement>) => {
+    let file: File | undefined;
+    
+    // Try File System Access API first (user chooses file location)
+    if ('showOpenFilePicker' in window && !e) {
+      try {
+        const [handle] = await (window as any).showOpenFilePicker({
+          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+          multiple: false,
+        });
+        file = await handle.getFile();
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    
+    if (!file && e) file = e.target.files?.[0];
     if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
@@ -490,14 +527,14 @@ const Settings = () => {
                 </div>
               </button>
 
-              <label className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors cursor-pointer">
+              <button onClick={() => 'showOpenFilePicker' in window ? importData() : fileInputRef.current?.click()} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left">
                 <Upload size={18} className="text-[hsl(var(--success))]" />
                 <div>
                   <p className="text-sm font-medium text-foreground">{t("import_backup")}</p>
-                  <p className="text-[10px] text-muted-foreground">Restore from JSON file</p>
+                  <p className="text-[10px] text-muted-foreground">Choose file location to restore</p>
                 </div>
-                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
-              </label>
+              </button>
+              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
 
               {localStorage.getItem("smk_autobackup_data") && (
                 <button onClick={restoreAutoBackup} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-primary/5 transition-colors text-left">
@@ -589,24 +626,11 @@ const Settings = () => {
                   <Trash2 size={18} className="text-warning" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{t("auto_clear_bills")}</p>
-                    <p className="text-[10px] text-muted-foreground">{t("auto_clear_bills_desc")}</p>
+                    <p className="text-[10px] text-muted-foreground">45 দিন পুরোনো bills auto delete হবে</p>
                   </div>
                 </div>
-                <ToggleSwitch value={autoClearOldBills} onChange={(v) => { setAutoClearOldBills(v); localStorage.setItem("smk_auto_clear_bills", String(v)); }} />
+                <ToggleSwitch value={autoClearOldBills} onChange={(v) => { setAutoClearOldBills(v); localStorage.setItem("smk_auto_clear_bills", String(v)); localStorage.setItem("smk_clear_after_days", "45"); }} />
               </div>
-
-              {autoClearOldBills && (
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">{t("clear_after_days")}</label>
-                  <div className="flex items-center gap-2">
-                    {[30, 60, 90, 180].map(d => (
-                      <button key={d} onClick={() => { setClearAfterDays(d); localStorage.setItem("smk_clear_after_days", String(d)); }} className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${clearAfterDays === d ? 'gradient-primary text-primary-foreground' : 'glass-card text-muted-foreground hover:text-foreground'}`}>
-                        {d} {t("days")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <button onClick={saveAdvanced} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                 <Save size={14} /> {t("save")} {t("advanced")}
