@@ -22,7 +22,15 @@ const generateBillNo = () => {
 
 const formatDate = (d: string | Date) => {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const fmt = localStorage.getItem("smk_date_format") || "dd/mm/yyyy";
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  
+  if (fmt === "mm/dd/yyyy") return `${month}/${day}/${year} ${time}`;
+  if (fmt === "yyyy-mm-dd") return `${year}-${month}-${day} ${time}`;
+  return `${day}/${month}/${year} ${time}`;
 };
 
 const generateBillSlipHTML = (bill: CompletedBill, shopName: string, shopAddress: string, shopGST: string) => {
