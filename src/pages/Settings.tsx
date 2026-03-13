@@ -151,7 +151,7 @@ const Settings = () => {
     localStorage.setItem("smk_date_format", dateFormat);
     localStorage.setItem("smk_bill_format", billFormat);
     localStorage.setItem("smk_auto_clear_bills", String(autoClearOldBills));
-    localStorage.setItem("smk_clear_after_days", String(clearAfterDays));
+    localStorage.setItem("smk_clear_after_days", "45");
     setActiveModal(null);
     toast.success(t("toast_saved"));
   };
