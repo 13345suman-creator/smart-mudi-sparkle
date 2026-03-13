@@ -527,14 +527,14 @@ const Settings = () => {
                 </div>
               </button>
 
-              <label className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors cursor-pointer">
+              <button onClick={() => 'showOpenFilePicker' in window ? importData() : fileInputRef.current?.click()} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-secondary/50 transition-colors text-left">
                 <Upload size={18} className="text-[hsl(var(--success))]" />
                 <div>
                   <p className="text-sm font-medium text-foreground">{t("import_backup")}</p>
-                  <p className="text-[10px] text-muted-foreground">Restore from JSON file</p>
+                  <p className="text-[10px] text-muted-foreground">Choose file location to restore</p>
                 </div>
-                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
-              </label>
+              </button>
+              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={importData} />
 
               {localStorage.getItem("smk_autobackup_data") && (
                 <button onClick={restoreAutoBackup} className="w-full glass-card p-4 rounded-xl flex items-center gap-3 hover:bg-primary/5 transition-colors text-left">
