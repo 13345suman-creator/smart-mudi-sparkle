@@ -463,13 +463,13 @@
 
   .modal-overlay {
     @apply fixed inset-0 z-50 flex items-center justify-center;
-    background: hsl(220 20% 5% / 0.8);
+    background: hsl(var(--foreground) / 0.3);
     backdrop-filter: blur(8px);
   }
 
   .success-screen {
     @apply fixed inset-0 z-[100] flex flex-col items-center justify-center;
-    background: hsl(220 20% 5% / 0.95);
+    background: hsl(var(--background) / 0.95);
   }
 
   .product-3d-container {
