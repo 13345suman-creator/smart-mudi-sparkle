@@ -367,7 +367,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    transition: background-color 0.5s ease, color 0.3s ease;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  * {
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -381,8 +385,8 @@
     background: hsl(var(--glass-bg));
     border-color: hsl(var(--glass-border));
     box-shadow: 
-      0 8px 32px hsl(220 20% 0% / 0.3),
-      inset 0 1px 0 hsl(220 15% 30% / 0.2);
+      0 4px 16px hsl(var(--foreground) / 0.08),
+      inset 0 1px 0 hsl(var(--foreground) / 0.04);
   }
 
   .glass-card-hover {
@@ -390,9 +394,9 @@
   }
   .glass-card-hover:hover {
     box-shadow: 
-      0 12px 40px hsl(220 20% 0% / 0.4),
+      0 8px 24px hsl(var(--foreground) / 0.12),
       0 0 20px hsl(var(--glow-primary)),
-      inset 0 1px 0 hsl(220 15% 30% / 0.3);
+      inset 0 1px 0 hsl(var(--foreground) / 0.06);
     transform: translateY(-2px);
   }
 
