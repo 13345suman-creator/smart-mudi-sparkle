@@ -242,18 +242,18 @@
 
   /* === PASTEL LIGHT THEMES (no black) === */
   [data-theme="peach-dream"] {
-    --background: 25 60% 95%;
-    --foreground: 25 40% 15%;
-    --card: 25 55% 92%;
-    --card-foreground: 25 40% 15%;
-    --popover: 25 50% 93%;
-    --popover-foreground: 25 40% 15%;
-    --primary: 15 85% 55%;
+    --background: 25 60% 96%;
+    --foreground: 20 50% 12%;
+    --card: 25 50% 93%;
+    --card-foreground: 20 50% 12%;
+    --popover: 25 48% 94%;
+    --popover-foreground: 20 50% 12%;
+    --primary: 15 85% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 25 40% 88%;
-    --secondary-foreground: 25 35% 25%;
-    --muted: 25 30% 90%;
-    --muted-foreground: 25 15% 45%;
+    --secondary: 25 35% 86%;
+    --secondary-foreground: 20 45% 18%;
+    --muted: 25 28% 89%;
+    --muted-foreground: 20 18% 40%;
     --accent: 340 60% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 55%;
@@ -281,18 +281,18 @@
   }
 
   [data-theme="sky-breeze"] {
-    --background: 200 50% 95%;
-    --foreground: 210 40% 15%;
-    --card: 200 45% 92%;
-    --card-foreground: 210 40% 15%;
-    --popover: 200 42% 93%;
-    --popover-foreground: 210 40% 15%;
-    --primary: 200 85% 48%;
+    --background: 200 50% 96%;
+    --foreground: 210 55% 12%;
+    --card: 200 42% 93%;
+    --card-foreground: 210 55% 12%;
+    --popover: 200 40% 94%;
+    --popover-foreground: 210 55% 12%;
+    --primary: 200 85% 44%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 200 35% 88%;
-    --secondary-foreground: 210 30% 25%;
-    --muted: 200 25% 90%;
-    --muted-foreground: 210 15% 45%;
+    --secondary: 200 30% 86%;
+    --secondary-foreground: 210 40% 18%;
+    --muted: 200 22% 89%;
+    --muted-foreground: 210 20% 40%;
     --accent: 170 65% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 55%;
@@ -320,18 +320,18 @@
   }
 
   [data-theme="mint-fresh"] {
-    --background: 145 40% 95%;
-    --foreground: 150 35% 15%;
-    --card: 145 35% 92%;
-    --card-foreground: 150 35% 15%;
-    --popover: 145 32% 93%;
-    --popover-foreground: 150 35% 15%;
-    --primary: 155 70% 40%;
+    --background: 145 38% 96%;
+    --foreground: 150 45% 12%;
+    --card: 145 32% 93%;
+    --card-foreground: 150 45% 12%;
+    --popover: 145 30% 94%;
+    --popover-foreground: 150 45% 12%;
+    --primary: 155 70% 36%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 145 28% 88%;
-    --secondary-foreground: 150 28% 25%;
-    --muted: 145 20% 90%;
-    --muted-foreground: 150 12% 45%;
+    --secondary: 145 25% 86%;
+    --secondary-foreground: 150 35% 18%;
+    --muted: 145 18% 89%;
+    --muted-foreground: 150 15% 40%;
     --accent: 85 55% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 55%;
@@ -367,7 +367,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    transition: background-color 0.5s ease, color 0.3s ease;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  * {
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -381,8 +385,8 @@
     background: hsl(var(--glass-bg));
     border-color: hsl(var(--glass-border));
     box-shadow: 
-      0 8px 32px hsl(220 20% 0% / 0.3),
-      inset 0 1px 0 hsl(220 15% 30% / 0.2);
+      0 4px 16px hsl(var(--foreground) / 0.08),
+      inset 0 1px 0 hsl(var(--foreground) / 0.04);
   }
 
   .glass-card-hover {
@@ -390,9 +394,9 @@
   }
   .glass-card-hover:hover {
     box-shadow: 
-      0 12px 40px hsl(220 20% 0% / 0.4),
+      0 8px 24px hsl(var(--foreground) / 0.12),
       0 0 20px hsl(var(--glow-primary)),
-      inset 0 1px 0 hsl(220 15% 30% / 0.3);
+      inset 0 1px 0 hsl(var(--foreground) / 0.06);
     transform: translateY(-2px);
   }
 
@@ -459,13 +463,13 @@
 
   .modal-overlay {
     @apply fixed inset-0 z-50 flex items-center justify-center;
-    background: hsl(220 20% 5% / 0.8);
+    background: hsl(var(--foreground) / 0.3);
     backdrop-filter: blur(8px);
   }
 
   .success-screen {
     @apply fixed inset-0 z-[100] flex flex-col items-center justify-center;
-    background: hsl(220 20% 5% / 0.95);
+    background: hsl(var(--background) / 0.95);
   }
 
   .product-3d-container {

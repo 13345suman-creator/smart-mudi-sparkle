@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash } from "lucide-react";
+import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash, ShoppingCart, CreditCard, Banknote, Smartphone, Users } from "lucide-react";
 import { speakBillPayment, speakNewUdhari } from "@/lib/notifications";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
@@ -108,7 +108,6 @@ th{padding:3px 2px;font-size:9px;text-transform:uppercase;border-bottom:1px soli
 const Billing = () => {
   const { bills, addBill, confirmBillPayment, addUdhari, settings, products: storeProducts } = useStore();
 
-  // Build product catalog from Firestore products
   const productCatalog = useMemo(() =>
     storeProducts.map(p => ({
       id: p.id,
@@ -133,18 +132,21 @@ const Billing = () => {
   const [viewingBill, setViewingBill] = useState<CompletedBill | null>(null);
   const [showHistory, setShowHistory] = useState(true);
   const [lastBill, setLastBill] = useState<CompletedBill | null>(null);
+  const [customerName, setCustomerName] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
 
   const total = items.reduce((sum, item) => sum + item.money, 0);
   const configuredUpis = settings.upiIds.filter(u => u.trim());
 
-  // External barcode scanner auto-detection (listen globally)
+  // Sort bills newest first
+  const sortedBills = useMemo(() => [...bills].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [bills]);
+
+  // External barcode scanner auto-detection
   const externalScanBuffer = useRef("");
   const externalScanTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastKeyTime = useRef(0);
 
   const handleGlobalBarcode = useCallback((e: KeyboardEvent) => {
-    // Only on billing page, not inside inputs
     if (showScanner || showPayment || showSuccess || viewingBill) return;
     const target = e.target as HTMLElement;
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
@@ -262,7 +264,7 @@ const Billing = () => {
       total: Math.round(total * 100) / 100,
       paymentMode,
       upiApp: paymentMode === "upi" ? selectedUpi : undefined,
-      customerName: paymentMode === "udhari" ? udhariName : undefined,
+      customerName: paymentMode === "udhari" ? udhariName : customerName || undefined,
       customerPhone: paymentMode === "udhari" ? udhariPhone : undefined,
       date: new Date().toISOString(),
       billNo: generateBillNo(),
@@ -272,12 +274,10 @@ const Billing = () => {
     addBill(newBill);
     setLastBill(newBill);
 
-    // Voice notification for payment
     if (paymentMode !== "udhari") {
       speakBillPayment(newBill.total, paymentMode);
     }
 
-    // Auto-add to udhari
     if (paymentMode === "udhari") {
       addUdhari({
         id: `udhari-${Date.now()}`,
@@ -306,6 +306,7 @@ const Billing = () => {
     setSelectedUpi("");
     setUdhariName("");
     setUdhariPhone("");
+    setCustomerName("");
     setLastBill(null);
   };
 
@@ -340,7 +341,6 @@ const Billing = () => {
     const thankYou = lang === "bn" ? "ধন্যবাদ!" : lang === "hi" ? "धन्यवाद!" : "Thank you!";
     const text = `🧾 ${bill.billNo}\n📅 ${formatDate(bill.date)}\n🏪 ${settings.shopName}\n\n${bill.items.map(i => `${i.name} × ${i.quantity} ${i.unit} = ₹${Math.round(i.money * 100) / 100}`).join('\n')}\n\n💰 Total: ₹${bill.total}\n💳 Payment: ${bill.paymentMode.toUpperCase()}${bill.upiApp ? ` (${bill.upiApp})` : ''}\n\n${thankYou} 🙏`;
     
-    // Try native share first
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: bill.billNo, text });
@@ -349,14 +349,12 @@ const Billing = () => {
         if (err?.name === 'AbortError') return;
       }
     }
-    // Fallback: try clipboard, then manual copy
     try {
       await navigator.clipboard.writeText(text);
       const { toast } = await import("sonner");
       const msg = lang === "bn" ? "ক্লিপবোর্ডে কপি হয়েছে! WhatsApp এ পেস্ট করুন" : lang === "hi" ? "क्लिपबोर्ड पर कॉपी हो गया! WhatsApp पर पेस्ट करें" : "Copied! Paste in WhatsApp or any app";
       toast.success(msg);
     } catch {
-      // Last resort: create a temporary textarea for manual copy
       const textarea = document.createElement('textarea');
       textarea.value = text;
       textarea.style.position = 'fixed';
@@ -370,14 +368,29 @@ const Billing = () => {
     }
   };
 
-  // Filter bills by bill ID search
   const filteredBills = billSearch.trim()
-    ? bills.filter(b => b.billNo.toLowerCase().includes(billSearch.toLowerCase()))
-    : bills;
+    ? sortedBills.filter(b => b.billNo.toLowerCase().includes(billSearch.toLowerCase()))
+    : sortedBills;
+
+  const paymentModes = [
+    { id: "cash", label: "Cash", icon: Banknote, color: "text-[hsl(var(--success))]" },
+    { id: "upi", label: "UPI", icon: Smartphone, color: "text-primary" },
+    { id: "mixed", label: "Mixed", icon: CreditCard, color: "text-accent" },
+    { id: "udhari", label: "Udhari", icon: Users, color: "text-[hsl(var(--warning))]" },
+  ];
 
   return (
     <div className="px-4 space-y-4 pb-4">
-      <h1 className="font-display text-xl font-bold text-foreground">Create Bill</h1>
+      {/* Header with item count */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold text-foreground">Create Bill</h1>
+        {items.length > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10">
+            <ShoppingCart size={14} className="text-primary" />
+            <span className="text-xs font-bold text-primary">{items.length}</span>
+          </div>
+        )}
+      </div>
 
       {/* Search + Scanner */}
       <div className="relative" ref={searchRef}>
@@ -416,155 +429,106 @@ const Billing = () => {
             <p className="text-3xl mb-2">🧾</p>
             <p className="text-sm text-muted-foreground">Search or scan to add items</p>
           </div>
-        ) : items.map(item => (
+        ) : items.map((item, idx) => (
           <div key={item.id} className="glass-card p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{item.name}</p>
-                <p className="text-xs text-muted-foreground">₹{item.price}/{item.unit}</p>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">{idx + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                  <p className="text-[10px] text-muted-foreground">₹{item.price}/{item.unit}</p>
+                </div>
               </div>
-              <button onClick={() => removeItem(item.id)} className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <Trash2 size={14} className="text-destructive" />
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-primary">₹{Math.round(item.money * 100) / 100}</span>
+                <button onClick={() => removeItem(item.id)} className="w-6 h-6 rounded-md bg-destructive/10 flex items-center justify-center">
+                  <X size={12} className="text-destructive" />
+                </button>
+              </div>
             </div>
 
-            {/* Quick Quantity Buttons */}
-            <div className="flex gap-1 flex-wrap">
+            {/* Compact quantity row */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                <Minus size={12} className="text-foreground" />
+              </button>
+              <input type="number" value={item.quantity} onChange={e => updateQuantity(item.id, parseFloat(e.target.value) || 0)} className="w-16 text-center text-sm font-bold text-foreground bg-secondary/50 rounded-lg py-1.5 outline-none focus:ring-1 focus:ring-primary" step="any" min="0" />
+              <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
+                <Plus size={12} className="text-primary-foreground" />
+              </button>
+              <span className="text-[10px] text-muted-foreground flex-shrink-0">{item.unit}</span>
+              <div className="flex-1">
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">₹</span>
+                  <input type="number" value={item.money} onChange={e => updateMoney(item.id, parseFloat(e.target.value) || 0)} className="w-full text-center text-sm font-bold text-foreground bg-secondary/50 rounded-lg py-1.5 pl-4 outline-none focus:ring-1 focus:ring-primary" step="any" min="0" />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Quantity - compact scrollable */}
+            <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
               {(item.unit === "kg" || item.unit === "gram") ? (
                 <>
                   {quantityPresets.map(p => (
-                    <button
-                      key={p.label}
-                      onClick={() => applyPreset(item.id, p.value)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - p.value) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
+                    <button key={p.label} onClick={() => applyPreset(item.id, p.value)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-all ${
+                        Math.abs(item.quantity - p.value) < 0.001 ? "gradient-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+                      }`}>{p.label}</button>
                   ))}
                   {[1, 2, 3, 5, 10].map(q => (
-                    <button
-                      key={q}
-                      onClick={() => updateQuantity(item.id, q)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - q) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {q}
-                    </button>
+                    <button key={q} onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001 ? "gradient-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+                      }`}>{q}</button>
                   ))}
                 </>
               ) : (item.unit === "liter" || item.unit === "ml") ? (
                 <>
-                  {[
-                    { label: "100ml", value: 0.1 },
-                    { label: "250ml", value: 0.25 },
-                    { label: "500ml", value: 0.5 },
-                    { label: "750ml", value: 0.75 },
-                  ].map(p => (
-                    <button
-                      key={p.label}
-                      onClick={() => applyPreset(item.id, p.value)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - p.value) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
+                  {[{ label: "100ml", value: 0.1 }, { label: "250ml", value: 0.25 }, { label: "500ml", value: 0.5 }, { label: "750ml", value: 0.75 }].map(p => (
+                    <button key={p.label} onClick={() => applyPreset(item.id, p.value)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-all ${
+                        Math.abs(item.quantity - p.value) < 0.001 ? "gradient-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+                      }`}>{p.label}</button>
                   ))}
                   {[1, 2, 3, 5, 10].map(q => (
-                    <button
-                      key={q}
-                      onClick={() => updateQuantity(item.id, q)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - q) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {q}
-                    </button>
+                    <button key={q} onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001 ? "gradient-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+                      }`}>{q}</button>
                   ))}
                 </>
               ) : (
                 <>
-                  {[0.25, 0.5, 0.75].map(q => (
-                    <button
-                      key={q}
-                      onClick={() => updateQuantity(item.id, q)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - q) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                  {[1, 2, 3, 5, 10].map(q => (
-                    <button
-                      key={q}
-                      onClick={() => updateQuantity(item.id, q)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
-                        Math.abs(item.quantity - q) < 0.001
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      {q}
-                    </button>
+                  {[0.25, 0.5, 0.75, 1, 2, 3, 5, 10].map(q => (
+                    <button key={q} onClick={() => updateQuantity(item.id, q)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all ${
+                        Math.abs(item.quantity - q) < 0.001 ? "gradient-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"
+                      }`}>{q}</button>
                   ))}
                 </>
               )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 flex-1">
-                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center">
-                  <Minus size={14} className="text-foreground" />
-                </button>
-                <div className="flex-1">
-                  <input type="number" value={item.quantity} onChange={e => updateQuantity(item.id, parseFloat(e.target.value) || 0)} className="w-full text-center text-sm font-bold text-foreground bg-secondary/50 rounded-lg py-1.5 outline-none focus:ring-1 focus:ring-primary" step="any" min="0" />
-                  <p className="text-[10px] text-muted-foreground text-center mt-0.5">Qty ({item.unit})</p>
-                </div>
-                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
-                  <Plus size={14} className="text-primary-foreground" />
-                </button>
-              </div>
-              <div className="flex-1">
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                  <input type="number" value={item.money} onChange={e => updateMoney(item.id, parseFloat(e.target.value) || 0)} className="w-full text-center text-sm font-bold text-foreground bg-secondary/50 rounded-lg py-1.5 pl-5 outline-none focus:ring-1 focus:ring-primary" step="any" min="0" />
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center mt-0.5">Amount</p>
-              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Total + Pay */}
+      {/* Sticky Total + Pay Bar */}
       {items.length > 0 && (
-        <div className="glass-card p-4 glow-primary">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-muted-foreground">Total</span>
-            <span className="text-2xl font-display font-bold gradient-text">₹{Math.round(total * 100) / 100}</span>
+        <div className="glass-card p-3 glow-primary">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-muted-foreground">{items.length} items</p>
+              <p className="text-xl font-display font-bold gradient-text">₹{Math.round(total * 100) / 100}</p>
+            </div>
+            <button onClick={() => setShowPayment(true)} className="gradient-primary text-primary-foreground px-6 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2">
+              <CreditCard size={16} /> Pay Now
+            </button>
           </div>
-          <button onClick={() => setShowPayment(true)} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">
-            Proceed to Pay
-          </button>
         </div>
       )}
 
       {/* Bill History */}
-      {bills.length > 0 && (
+      {sortedBills.length > 0 && (
         <div className="space-y-2">
           <button onClick={() => setShowHistory(!showHistory)} className="flex items-center justify-between w-full">
             <h2 className="font-display text-lg font-bold text-foreground">Recent Bills</h2>
@@ -573,7 +537,6 @@ const Billing = () => {
 
           {showHistory && (
             <>
-              {/* Bill ID Search */}
               <div className="glass-card flex items-center gap-2 px-3 py-2">
                 <Hash size={14} className="text-muted-foreground" />
                 <input
@@ -593,7 +556,7 @@ const Billing = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-xs text-muted-foreground truncate">{bill.billNo}</p>
-                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${bill.paymentConfirmed ? 'bg-success' : 'bg-warning animate-pulse'}`} />
+                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${bill.paymentConfirmed ? 'bg-[hsl(var(--success))]' : 'bg-[hsl(var(--warning))] animate-pulse'}`} />
                       </div>
                       <p className="text-sm font-semibold text-foreground">₹{bill.total}</p>
                       {billFmt === "detailed" && (
@@ -604,14 +567,12 @@ const Billing = () => {
                         </p>
                       )}
                       {billFmt === "compact" && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatDate(bill.date)}
-                        </p>
+                        <p className="text-[10px] text-muted-foreground">{formatDate(bill.date)}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       {!bill.paymentConfirmed && (
-                        <button onClick={() => confirmBillPayment(bill.id)} className="px-2 py-1 rounded-lg bg-success/10 text-success text-[10px] font-semibold" title="Mark Paid">
+                        <button onClick={() => confirmBillPayment(bill.id)} className="px-2 py-1 rounded-lg bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] text-[10px] font-semibold" title="Mark Paid">
                           Done ✓
                         </button>
                       )}
@@ -687,7 +648,7 @@ const Billing = () => {
                   {viewingBill.paymentMode}{viewingBill.upiApp ? ` (${viewingBill.upiApp})` : ''}
                 </span>
                 <div>
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${viewingBill.paymentConfirmed ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${viewingBill.paymentConfirmed ? 'bg-[hsl(var(--success))]/10 text-[hsl(var(--success))]' : 'bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))]'}`}>
                     {viewingBill.paymentConfirmed ? '✓ PAID' : '⏳ PENDING'}
                   </span>
                 </div>
@@ -714,26 +675,57 @@ const Billing = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
+      {/* Payment Modal - Professional */}
       {showPayment && (
         <div className="modal-overlay" onClick={() => setShowPayment(false)}>
           <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display font-bold text-lg text-foreground">Payment — ₹{Math.round(total * 100) / 100}</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display font-bold text-lg text-foreground">Checkout</h3>
               <button onClick={() => setShowPayment(false)} className="text-muted-foreground"><X size={20} /></button>
             </div>
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {["cash", "upi", "mixed", "udhari"].map(mode => (
-                <button
-                  key={mode}
-                  onClick={() => { setPaymentMode(mode); setSelectedUpi(""); }}
-                  className={`py-3 rounded-xl text-sm font-semibold capitalize transition-all ${
-                    paymentMode === mode ? "gradient-primary text-primary-foreground glow-primary" : "glass-card text-foreground"
-                  }`}
-                >
-                  {mode === "upi" ? "UPI" : mode}
-                </button>
-              ))}
+
+            {/* Order Summary */}
+            <div className="glass-card p-3 rounded-xl mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">{items.length} items</span>
+                <span className="text-lg font-display font-bold gradient-text">₹{Math.round(total * 100) / 100}</span>
+              </div>
+              <div className="max-h-24 overflow-y-auto space-y-0.5">
+                {items.map(i => (
+                  <div key={i.id} className="flex justify-between text-[10px] text-muted-foreground">
+                    <span className="truncate flex-1">{i.name} × {i.quantity}</span>
+                    <span className="ml-2 font-medium">₹{Math.round(i.money * 100) / 100}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer name (optional) */}
+            {paymentMode !== "udhari" && (
+              <div className="mb-3">
+                <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)"
+                  className="w-full glass-card px-3 py-2 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+              </div>
+            )}
+
+            {/* Payment Methods */}
+            <p className="text-xs text-muted-foreground mb-2">Payment Method</p>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {paymentModes.map(mode => {
+                const Icon = mode.icon;
+                return (
+                  <button
+                    key={mode.id}
+                    onClick={() => { setPaymentMode(mode.id); setSelectedUpi(""); }}
+                    className={`py-3 rounded-xl text-center transition-all flex flex-col items-center gap-1 ${
+                      paymentMode === mode.id ? "gradient-primary text-primary-foreground glow-primary" : "glass-card text-foreground"
+                    }`}
+                  >
+                    <Icon size={18} className={paymentMode === mode.id ? "text-primary-foreground" : mode.color} />
+                    <span className="text-[10px] font-semibold">{mode.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* UPI App Selection */}
@@ -756,17 +748,18 @@ const Billing = () => {
               </div>
             )}
             {paymentMode === "upi" && configuredUpis.length === 0 && (
-              <p className="text-xs text-warning mb-4 text-center">⚠️ No UPI IDs configured. Go to Settings → UPI Settings to add.</p>
+              <p className="text-xs text-[hsl(var(--warning))] mb-4 text-center">⚠️ No UPI IDs configured. Go to Settings → UPI Settings to add.</p>
             )}
 
             {paymentMode === "udhari" && (
               <div className="space-y-3 mb-4">
-                <input value={udhariName} onChange={e => setUdhariName(e.target.value)} placeholder="Customer Name" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
-                <input value={udhariPhone} onChange={e => setUdhariPhone(e.target.value)} placeholder="Phone Number" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+                <input value={udhariName} onChange={e => setUdhariName(e.target.value)} placeholder="Customer Name *" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+                <input value={udhariPhone} onChange={e => setUdhariPhone(e.target.value)} placeholder="Phone Number *" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
               </div>
             )}
-            <button onClick={handlePay} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">
-              Confirm Payment
+            <button onClick={handlePay} disabled={!paymentMode || (paymentMode === "udhari" && (!udhariName || !udhariPhone)) || (paymentMode === "upi" && configuredUpis.length > 0 && !selectedUpi)}
+              className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2">
+              <CheckCircle size={16} /> Confirm Payment
             </button>
           </div>
         </div>
@@ -775,8 +768,8 @@ const Billing = () => {
       {/* Success Animation */}
       {showSuccess && (
         <div className="success-screen animate-scale-in">
-          <div className="w-24 h-24 rounded-full bg-success/20 flex items-center justify-center mb-6 pulse-glow">
-            <CheckCircle size={56} className="text-success" />
+          <div className="w-24 h-24 rounded-full bg-[hsl(var(--success))]/20 flex items-center justify-center mb-6 pulse-glow">
+            <CheckCircle size={56} className="text-[hsl(var(--success))]" />
           </div>
           <h2 className="font-display text-2xl font-bold text-foreground mb-2">
             {paymentMode === "udhari" ? "Udhari Recorded!" : "Payment Received!"}
@@ -787,7 +780,7 @@ const Billing = () => {
             {!lastBill?.paymentConfirmed && paymentMode !== "udhari" && (
               <button
                 onClick={() => { if (lastBill) confirmBillPayment(lastBill.id); setLastBill(lastBill ? { ...lastBill, paymentConfirmed: true } : null); }}
-                className="px-6 py-2.5 rounded-xl font-semibold text-sm bg-success/20 text-success"
+                className="px-6 py-2.5 rounded-xl font-semibold text-sm bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
               >
                 Mark as Paid ✓
               </button>
