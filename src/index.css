@@ -242,18 +242,18 @@
 
   /* === PASTEL LIGHT THEMES (no black) === */
   [data-theme="peach-dream"] {
-    --background: 25 60% 95%;
-    --foreground: 25 40% 15%;
-    --card: 25 55% 92%;
-    --card-foreground: 25 40% 15%;
-    --popover: 25 50% 93%;
-    --popover-foreground: 25 40% 15%;
-    --primary: 15 85% 55%;
+    --background: 25 60% 96%;
+    --foreground: 20 50% 12%;
+    --card: 25 50% 93%;
+    --card-foreground: 20 50% 12%;
+    --popover: 25 48% 94%;
+    --popover-foreground: 20 50% 12%;
+    --primary: 15 85% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 25 40% 88%;
-    --secondary-foreground: 25 35% 25%;
-    --muted: 25 30% 90%;
-    --muted-foreground: 25 15% 45%;
+    --secondary: 25 35% 86%;
+    --secondary-foreground: 20 45% 18%;
+    --muted: 25 28% 89%;
+    --muted-foreground: 20 18% 40%;
     --accent: 340 60% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 55%;
