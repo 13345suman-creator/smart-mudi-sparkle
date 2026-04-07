@@ -375,6 +375,31 @@ const Billing = () => {
     ? sortedBills.filter(b => b.billNo.toLowerCase().includes(billSearch.toLowerCase()))
     : sortedBills;
 
+  // Long-press handlers for bill history
+  const handleBillPointerDown = useCallback((billId: string) => {
+    billLongPressTriggered.current = false;
+    billLongPressTimer.current = setTimeout(() => {
+      billLongPressTriggered.current = true;
+      if (navigator.vibrate) navigator.vibrate(50);
+      setDeleteBillConfirm(billId);
+    }, 800);
+  }, []);
+
+  const handleBillPointerUp = useCallback(() => {
+    if (billLongPressTimer.current) {
+      clearTimeout(billLongPressTimer.current);
+      billLongPressTimer.current = null;
+    }
+  }, []);
+
+  const handleDeleteBill = (billId: string) => {
+    deleteBill(billId);
+    setDeleteBillConfirm(null);
+    const { toast } = require("sonner");
+    const lang = localStorage.getItem("smk_language") || "en";
+    toast.success(lang === "bn" ? "বিল ডিলিট হয়েছে" : lang === "hi" ? "बिल डिलीट हो गया" : "Bill deleted");
+  };
+
   const paymentModes = [
     { id: "cash", label: "Cash", icon: Banknote, color: "text-[hsl(var(--success))]" },
     { id: "upi", label: "UPI", icon: Smartphone, color: "text-primary" },
