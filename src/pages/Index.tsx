@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { useLanguage } from "@/lib/language";
 import AnalyticsCards from "../components/AnalyticsCards";
+import AdSlider from "../components/AdSlider";
 
 const formatDate = (d: string | Date) => {
   const date = typeof d === 'string' ? new Date(d) : d;
@@ -94,7 +95,8 @@ const Index = () => {
 
       <AnalyticsCards todaySales={todaySales} pendingUdhari={totalPendingUdhari} udhariCustomers={udhariEntries.length} />
 
-
+      {/* Ad Slider - above quick actions */}
+      <AdSlider />
       {/* Low Stock Detail Modal */}
       {showLowStockDetail && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowLowStockDetail(false)}>
