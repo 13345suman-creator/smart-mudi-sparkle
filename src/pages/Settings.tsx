@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw, Megaphone } from "lucide-react";
+import AdminAds from "@/components/AdminAds";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
@@ -278,6 +279,8 @@ const Settings = () => {
     </button>
   );
 
+  const isAdmin = user?.email === "d2018ass@gmail.com";
+
   const settingsItems = [
     { icon: Store, label: t("shop_details"), desc: `${settings.shopName}`, action: () => setActiveModal("shop") },
     
@@ -286,6 +289,7 @@ const Settings = () => {
     { icon: Palette, label: t("appearance"), desc: THEMES.find(t => t.id === currentTheme)?.name || "Theme", action: () => setActiveModal("appearance") },
     { icon: Database, label: t("backup_data"), desc: `${getStorageUsage()} KB`, action: () => setActiveModal("backup") },
     { icon: Zap, label: t("advanced"), desc: `${currency} · ${lang.toUpperCase()}`, action: () => setActiveModal("advanced") },
+    ...(isAdmin ? [{ icon: Megaphone, label: "Ad Manager", desc: "Create & manage ads", action: () => setActiveModal("ads") }] : []),
   ];
 
   const renderModal = () => {
@@ -293,12 +297,12 @@ const Settings = () => {
 
     const titles: Record<string, string> = {
       shop: t("shop_details"),
-      
       security: t("security"),
       notifications: t("notifications"),
       appearance: t("appearance"),
       backup: t("backup_data"),
       advanced: t("advanced"),
+      ads: "Ad Manager",
     };
 
     return (
@@ -444,7 +448,7 @@ const Settings = () => {
 
           {/* Appearance */}
           {activeModal === "appearance" && (
-            <div className="space-y-4">
+            <div className="space-y-4" style={{ WebkitOverflowScrolling: "touch" }}>
               <p className="text-xs text-muted-foreground">Choose your premium 3D theme</p>
               <div className="space-y-3">
                 {THEMES.map((theme) => (
@@ -485,6 +489,9 @@ const Settings = () => {
               </div>
             </div>
           )}
+
+          {/* Ad Manager (Admin Only) */}
+          {activeModal === "ads" && isAdmin && <AdminAds />}
 
           {/* Backup & Data */}
           {activeModal === "backup" && (
