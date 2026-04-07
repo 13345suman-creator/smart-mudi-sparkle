@@ -625,11 +625,29 @@ const Billing = () => {
                 </div>
                 );
               })}
+              {filteredBills.length > 0 && (
+                <p className="text-[9px] text-muted-foreground text-center opacity-60 pt-1">Long press any bill to delete</p>
+              )}
               {filteredBills.length === 0 && billSearch && (
                 <p className="text-xs text-muted-foreground text-center py-4">No bills found for "{billSearch}"</p>
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Delete Bill Confirmation */}
+      {deleteBillConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteBillConfirm(null)}>
+          <div className="glass-card w-[85%] max-w-xs p-5 animate-slide-up text-center" onClick={e => e.stopPropagation()}>
+            <Trash2 size={36} className="text-destructive mx-auto mb-3" />
+            <h3 className="font-display font-bold text-base text-foreground mb-2">Delete Bill?</h3>
+            <p className="text-xs text-muted-foreground mb-4">This action cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteBillConfirm(null)} className="flex-1 glass-card py-2.5 rounded-xl text-sm font-semibold text-foreground">Cancel</button>
+              <button onClick={() => handleDeleteBill(deleteBillConfirm)} className="flex-1 bg-destructive text-destructive-foreground py-2.5 rounded-xl text-sm font-semibold">Delete</button>
+            </div>
+          </div>
         </div>
       )}
 
