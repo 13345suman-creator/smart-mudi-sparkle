@@ -307,7 +307,7 @@ const Settings = () => {
 
     return (
       <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-        <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="glass-card w-[92%] max-w-md p-5 animate-slide-up max-h-[85vh] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-bold text-lg text-foreground">{titles[activeModal]}</h3>
             <button onClick={() => setActiveModal(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
