@@ -579,7 +579,12 @@ const Billing = () => {
               {filteredBills.map(bill => {
                 const billFmt = localStorage.getItem("smk_bill_format") || "detailed";
                 return (
-                <div key={bill.id} className="glass-card p-3">
+                <div key={bill.id} className="glass-card p-3 select-none"
+                  onPointerDown={() => handleBillPointerDown(bill.id)}
+                  onPointerUp={handleBillPointerUp}
+                  onPointerLeave={handleBillPointerUp}
+                  onContextMenu={e => e.preventDefault()}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
