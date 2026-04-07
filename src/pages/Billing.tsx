@@ -133,7 +133,10 @@ const Billing = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [lastBill, setLastBill] = useState<CompletedBill | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [deleteBillConfirm, setDeleteBillConfirm] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const billLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const billLongPressTriggered = useRef(false);
 
   const total = items.reduce((sum, item) => sum + item.money, 0);
   const configuredUpis = settings.upiIds.filter(u => u.trim());
