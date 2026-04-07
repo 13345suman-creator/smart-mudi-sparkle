@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash, ShoppingCart, CreditCard, Banknote, Smartphone, Users } from "lucide-react";
 import { speakBillPayment, speakNewUdhari } from "@/lib/notifications";
+import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
@@ -106,7 +107,7 @@ th{padding:3px 2px;font-size:9px;text-transform:uppercase;border-bottom:1px soli
 };
 
 const Billing = () => {
-  const { bills, addBill, confirmBillPayment, addUdhari, settings, products: storeProducts } = useStore();
+  const { bills, addBill, confirmBillPayment, deleteBill, addUdhari, settings, products: storeProducts } = useStore();
 
   const productCatalog = useMemo(() =>
     storeProducts.map(p => ({
@@ -133,7 +134,10 @@ const Billing = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [lastBill, setLastBill] = useState<CompletedBill | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [deleteBillConfirm, setDeleteBillConfirm] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const billLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const billLongPressTriggered = useRef(false);
 
   const total = items.reduce((sum, item) => sum + item.money, 0);
   const configuredUpis = settings.upiIds.filter(u => u.trim());
@@ -372,6 +376,30 @@ const Billing = () => {
     ? sortedBills.filter(b => b.billNo.toLowerCase().includes(billSearch.toLowerCase()))
     : sortedBills;
 
+  // Long-press handlers for bill history
+  const handleBillPointerDown = useCallback((billId: string) => {
+    billLongPressTriggered.current = false;
+    billLongPressTimer.current = setTimeout(() => {
+      billLongPressTriggered.current = true;
+      if (navigator.vibrate) navigator.vibrate(50);
+      setDeleteBillConfirm(billId);
+    }, 800);
+  }, []);
+
+  const handleBillPointerUp = useCallback(() => {
+    if (billLongPressTimer.current) {
+      clearTimeout(billLongPressTimer.current);
+      billLongPressTimer.current = null;
+    }
+  }, []);
+
+  const handleDeleteBill = (billId: string) => {
+    deleteBill(billId);
+    setDeleteBillConfirm(null);
+    const lang = localStorage.getItem("smk_language") || "en";
+    toast.success(lang === "bn" ? "বিল ডিলিট হয়েছে" : lang === "hi" ? "बिल डिलीट हो गया" : "Bill deleted");
+  };
+
   const paymentModes = [
     { id: "cash", label: "Cash", icon: Banknote, color: "text-[hsl(var(--success))]" },
     { id: "upi", label: "UPI", icon: Smartphone, color: "text-primary" },
@@ -551,7 +579,12 @@ const Billing = () => {
               {filteredBills.map(bill => {
                 const billFmt = localStorage.getItem("smk_bill_format") || "detailed";
                 return (
-                <div key={bill.id} className="glass-card p-3">
+                <div key={bill.id} className="glass-card p-3 select-none"
+                  onPointerDown={() => handleBillPointerDown(bill.id)}
+                  onPointerUp={handleBillPointerUp}
+                  onPointerLeave={handleBillPointerUp}
+                  onContextMenu={e => e.preventDefault()}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -592,11 +625,29 @@ const Billing = () => {
                 </div>
                 );
               })}
+              {filteredBills.length > 0 && (
+                <p className="text-[9px] text-muted-foreground text-center opacity-60 pt-1">Long press any bill to delete</p>
+              )}
               {filteredBills.length === 0 && billSearch && (
                 <p className="text-xs text-muted-foreground text-center py-4">No bills found for "{billSearch}"</p>
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Delete Bill Confirmation */}
+      {deleteBillConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteBillConfirm(null)}>
+          <div className="glass-card w-[85%] max-w-xs p-5 animate-slide-up text-center" onClick={e => e.stopPropagation()}>
+            <Trash2 size={36} className="text-destructive mx-auto mb-3" />
+            <h3 className="font-display font-bold text-base text-foreground mb-2">Delete Bill?</h3>
+            <p className="text-xs text-muted-foreground mb-4">This action cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteBillConfirm(null)} className="flex-1 glass-card py-2.5 rounded-xl text-sm font-semibold text-foreground">Cancel</button>
+              <button onClick={() => handleDeleteBill(deleteBillConfirm)} className="flex-1 bg-destructive text-destructive-foreground py-2.5 rounded-xl text-sm font-semibold">Delete</button>
+            </div>
+          </div>
         </div>
       )}
 

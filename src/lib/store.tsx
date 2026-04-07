@@ -117,6 +117,7 @@ interface StoreContextType {
   bills: CompletedBill[];
   addBill: (bill: CompletedBill) => void;
   confirmBillPayment: (billId: string) => void;
+  deleteBill: (billId: string) => void;
   udhariEntries: UdhariEntry[];
   paidOffCustomers: PaidOffCustomer[];
   addUdhari: (entry: UdhariEntry) => void;
@@ -393,6 +394,17 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteBill = async (billId: string) => {
+    const bill = bills.find(b => b.id === billId);
+    setBills(prev => prev.filter(b => b.id !== billId));
+    if (isOnline) {
+      try {
+        await deleteDoc(doc(db, `users/${uid}/bills`, billId));
+        if (bill) await updateGlobalStorage(-estimateBytes(bill));
+      } catch (e) { console.warn(e); }
+    }
+  };
+
   const addUdhari = async (entry: UdhariEntry) => {
     if (checkStorageLimit()) return;
     const currency = localStorage.getItem("smk_currency") || "₹";
@@ -532,7 +544,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <StoreContext.Provider value={{
-      bills, addBill, confirmBillPayment,
+      bills, addBill, confirmBillPayment, deleteBill,
       udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff,
       settings, updateSettings,
       products, addProduct, updateProduct, deleteProduct,
