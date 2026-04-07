@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, Minus, Trash2, X, CheckCircle, ScanLine, Eye, Download, Share2, ChevronDown, ChevronUp, Printer, Hash, ShoppingCart, CreditCard, Banknote, Smartphone, Users } from "lucide-react";
 import { speakBillPayment, speakNewUdhari } from "@/lib/notifications";
+import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useStore, type BillItem, type CompletedBill } from "@/lib/store";
 
@@ -395,7 +396,6 @@ const Billing = () => {
   const handleDeleteBill = (billId: string) => {
     deleteBill(billId);
     setDeleteBillConfirm(null);
-    const { toast } = require("sonner");
     const lang = localStorage.getItem("smk_language") || "en";
     toast.success(lang === "bn" ? "বিল ডিলিট হয়েছে" : lang === "hi" ? "बिल डिलीट हो गया" : "Bill deleted");
   };
