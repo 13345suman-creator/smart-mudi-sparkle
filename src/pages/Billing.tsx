@@ -232,7 +232,8 @@ const Billing = () => {
     const product = productCatalog.find(p => p.barcode === barcode);
     if (product) addItem(product);
     else { setSearch(barcode); setShowSuggestions(true); }
-    setShowScanner(false);
+    // Don't close scanner - it stays open for continuous scanning
+    // Scanner will close when user clicks "Done"
   };
 
   const updateQuantity = (id: string, newQty: number) => {
