@@ -188,6 +188,21 @@ export function speakUdhariPayment(amount: number, remaining: number, method: st
   speak(message);
 }
 
+// Test voice in selected language (used in Settings)
+export function speakVoiceTest() {
+  const lang = localStorage.getItem("smk_language") || "en";
+  let message = "";
+  if (lang === "bn") {
+    message = "নমস্কার! এটি একটি ভয়েস টেস্ট। স্মার্ট মুদি খানা আপনাকে স্বাগত জানাচ্ছে। ভাষা সঠিকভাবে নির্বাচিত হয়েছে।";
+  } else if (lang === "hi") {
+    message = "नमस्ते! यह एक वॉयस टेस्ट है। स्मार्ट मुदी खाना आपका स्वागत करता है। भाषा सही ढंग से चयनित है।";
+  } else {
+    message = "Hello! This is a voice test. Smart Mudi Khana welcomes you. The language is correctly selected.";
+  }
+  // Force-enable for the test even if sound disabled? Keep respecting setting.
+  speak(message);
+}
+
 // Voice notification for new udhari
 export function speakNewUdhari(customerName: string, amount: number) {
   const lang = localStorage.getItem("smk_language") || "en";
