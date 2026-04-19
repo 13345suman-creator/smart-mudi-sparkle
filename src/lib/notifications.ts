@@ -57,19 +57,48 @@ function getSpeechLang(): string {
   }
 }
 
+// Get a matching voice for the language (Web Speech API needs voice loading)
+function getVoiceForLang(targetLang: string): SpeechSynthesisVoice | null {
+  try {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    let v = voices.find(v => v.lang === targetLang);
+    if (v) return v;
+    const prefix = targetLang.split("-")[0];
+    v = voices.find(v => v.lang.toLowerCase().startsWith(prefix.toLowerCase()));
+    return v || null;
+  } catch { return null; }
+}
+
 // Speak a message using Web Speech API in the selected language
 function speak(message: string) {
   if (!isSoundEnabled()) return;
   try {
     const synth = window.speechSynthesis;
-    // Cancel any ongoing speech
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = getSpeechLang();
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    utterance.volume = 0.9;
-    synth.speak(utterance);
+    const targetLang = getSpeechLang();
+
+    const doSpeak = () => {
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = targetLang;
+      const voice = getVoiceForLang(targetLang);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      synth.speak(utterance);
+    };
+
+    if (synth.getVoices().length === 0) {
+      const handler = () => {
+        synth.removeEventListener("voiceschanged", handler);
+        doSpeak();
+      };
+      synth.addEventListener("voiceschanged", handler);
+      setTimeout(doSpeak, 350);
+    } else {
+      doSpeak();
+    }
   } catch {}
 }
 
