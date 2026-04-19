@@ -445,10 +445,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const addUdhari = async (entry: UdhariEntry) => {
     if (checkStorageLimit()) return;
     const currency = localStorage.getItem("smk_currency") || "₹";
-    const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || entry.amount, payments: entry.payments || [] };
-    const existing = udhariEntries.find(e => e.phone === entryWithDefaults.phone && e.name === entryWithDefaults.name);
+    const entryWithDefaults = { ...entry, totalBilled: entry.totalBilled || Math.abs(entry.amount), payments: entry.payments || [] };
+    // Match by phone first (more unique), then fallback to name+phone
+    const existing = udhariEntries.find(e =>
+      (entryWithDefaults.phone && e.phone === entryWithDefaults.phone) ||
+      (e.phone === entryWithDefaults.phone && e.name.toLowerCase() === entryWithDefaults.name.toLowerCase())
+    );
     if (existing) {
-      const updated = { ...existing, amount: existing.amount + entryWithDefaults.amount, totalBilled: existing.totalBilled + entryWithDefaults.amount };
+      const updated = {
+        ...existing,
+        amount: existing.amount + entryWithDefaults.amount,
+        totalBilled: existing.totalBilled + Math.max(0, entryWithDefaults.amount),
+      };
       setUdhariEntries(prev => prev.map(e => e.id === existing.id ? updated : e));
       notifyUdhari(entry.name, entryWithDefaults.amount, currency);
       if (isOnline) {
