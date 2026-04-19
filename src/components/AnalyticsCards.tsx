@@ -42,18 +42,29 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     };
   });
 
+  // Monthly countdown - days remaining until end of month
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const daysRemaining = daysInCurrentMonth - currentDay;
+  const isMonthEnd = daysRemaining <= 2; // Last 3 days
+  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
+  const isLastDay = daysRemaining === 0;
+
+  // Countdown text per language
+  const lang = (typeof window !== "undefined" && localStorage.getItem("smk_language")) || "en";
+  const monthEndLabel =
+    isLastDay
+      ? (lang === "bn" ? "🎯 আজ মাসের শেষ দিন!" : lang === "hi" ? "🎯 आज महीने का अंतिम दिन!" : "🎯 Last day of month!")
+      : daysRemaining === 1
+      ? (lang === "bn" ? "⏰ আগামীকাল মাস শেষ" : lang === "hi" ? "⏰ कल महीना खत्म" : "⏰ 1 day left")
+      : (lang === "bn" ? `⏳ ${daysRemaining} দিন বাকি` : lang === "hi" ? `⏳ ${daysRemaining} दिन शेष` : `⏳ ${daysRemaining} days left`);
+
   const stats = [
     { label: t("today_sales"), value: `${currency}${todaySales.toLocaleString()}`, icon: IndianRupee, gradient: "gradient-card-blue", change: `${todayBills.length} bills` },
-    { label: t("monthly_sales"), value: `${currency}${monthlySales.toLocaleString()}`, icon: TrendingUp, gradient: "gradient-card-green", change: `${monthlyBills.length} bills` },
+    { label: t("monthly_sales"), value: `${currency}${monthlySales.toLocaleString()}`, icon: TrendingUp, gradient: "gradient-card-green", change: monthEndLabel },
     { label: t("total_products"), value: String(products.length), icon: Package, gradient: "gradient-card-orange", change: `${products.filter(p => p.stock <= (p.lowStockAlert || 5)).length} low` },
     { label: t("pending_udhari"), value: `${currency}${pendingUdhari.toLocaleString()}`, icon: Users, gradient: "gradient-card-purple", change: `${udhariCustomers} ${t("customers")}` },
   ];
-
-  // Check if monthly report is available (last 3 days of month)
-  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const currentDay = now.getDate();
-  const isMonthEnd = currentDay >= daysInCurrentMonth - 2; // Last 3 days
-  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
 
   // Generate daily chart data for monthly report
   const getDailyChartData = () => {
