@@ -433,6 +433,62 @@
     background: linear-gradient(135deg, hsl(260 60% 30% / 0.6), hsl(280 50% 22% / 0.4));
   }
 
+  /* === PASTEL THEME OVERRIDES — bright tinted cards, deep text === */
+  [data-theme="peach-dream"] .gradient-card-blue,
+  [data-theme="sky-breeze"] .gradient-card-blue,
+  [data-theme="mint-fresh"] .gradient-card-blue {
+    background: linear-gradient(135deg, hsl(210 90% 70% / 0.55), hsl(230 85% 78% / 0.45));
+    border: 1px solid hsl(210 80% 35% / 0.25);
+  }
+  [data-theme="peach-dream"] .gradient-card-green,
+  [data-theme="sky-breeze"] .gradient-card-green,
+  [data-theme="mint-fresh"] .gradient-card-green {
+    background: linear-gradient(135deg, hsl(145 75% 65% / 0.55), hsl(165 70% 72% / 0.45));
+    border: 1px solid hsl(150 70% 25% / 0.25);
+  }
+  [data-theme="peach-dream"] .gradient-card-orange,
+  [data-theme="sky-breeze"] .gradient-card-orange,
+  [data-theme="mint-fresh"] .gradient-card-orange {
+    background: linear-gradient(135deg, hsl(30 95% 70% / 0.6), hsl(15 90% 75% / 0.45));
+    border: 1px solid hsl(20 85% 32% / 0.25);
+  }
+  [data-theme="peach-dream"] .gradient-card-purple,
+  [data-theme="sky-breeze"] .gradient-card-purple,
+  [data-theme="mint-fresh"] .gradient-card-purple {
+    background: linear-gradient(135deg, hsl(265 85% 75% / 0.55), hsl(285 80% 80% / 0.45));
+    border: 1px solid hsl(270 70% 30% / 0.25);
+  }
+  /* Force deep text inside gradient cards on pastel themes */
+  [data-theme="peach-dream"] .gradient-card-blue *,
+  [data-theme="peach-dream"] .gradient-card-green *,
+  [data-theme="peach-dream"] .gradient-card-orange *,
+  [data-theme="peach-dream"] .gradient-card-purple *,
+  [data-theme="sky-breeze"] .gradient-card-blue *,
+  [data-theme="sky-breeze"] .gradient-card-green *,
+  [data-theme="sky-breeze"] .gradient-card-orange *,
+  [data-theme="sky-breeze"] .gradient-card-purple *,
+  [data-theme="mint-fresh"] .gradient-card-blue *,
+  [data-theme="mint-fresh"] .gradient-card-green *,
+  [data-theme="mint-fresh"] .gradient-card-orange *,
+  [data-theme="mint-fresh"] .gradient-card-purple * {
+    text-shadow: 0 1px 0 hsl(0 0% 100% / 0.35);
+  }
+  [data-theme="peach-dream"] .gradient-card-blue .text-muted-foreground,
+  [data-theme="peach-dream"] .gradient-card-green .text-muted-foreground,
+  [data-theme="peach-dream"] .gradient-card-orange .text-muted-foreground,
+  [data-theme="peach-dream"] .gradient-card-purple .text-muted-foreground,
+  [data-theme="sky-breeze"] .gradient-card-blue .text-muted-foreground,
+  [data-theme="sky-breeze"] .gradient-card-green .text-muted-foreground,
+  [data-theme="sky-breeze"] .gradient-card-orange .text-muted-foreground,
+  [data-theme="sky-breeze"] .gradient-card-purple .text-muted-foreground,
+  [data-theme="mint-fresh"] .gradient-card-blue .text-muted-foreground,
+  [data-theme="mint-fresh"] .gradient-card-green .text-muted-foreground,
+  [data-theme="mint-fresh"] .gradient-card-orange .text-muted-foreground,
+  [data-theme="mint-fresh"] .gradient-card-purple .text-muted-foreground {
+    color: hsl(220 50% 12%);
+    font-weight: 600;
+  }
+
   .float-animation {
     animation: float 3s ease-in-out infinite;
   }
