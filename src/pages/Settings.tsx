@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw, Megaphone } from "lucide-react";
+import { Store, Shield, Bell, Palette, Database, ChevronRight, X, Save, Download, Upload, Trash2, CheckCircle, Lock, BellRing, AlertTriangle, Languages, IndianRupee, Clock, HardDrive, Zap, Eye, EyeOff, Volume2, VolumeX, RefreshCw, Megaphone, Mic } from "lucide-react";
 import AdminAds from "@/components/AdminAds";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { toast } from "sonner";
+import { speakVoiceTest } from "@/lib/notifications";
 
 interface ThemeOption {
   id: string;
@@ -455,6 +456,38 @@ const Settings = () => {
                   <ToggleSwitch value={item.value} onChange={(v) => toggleNotifSetting(item.key, v, item.set)} />
                 </div>
               ))}
+
+              {/* Voice Test */}
+              <button
+                onClick={() => {
+                  if (localStorage.getItem("smk_sound") === "false") {
+                    toast.error(lang === "bn" ? "Sound বন্ধ আছে — আগে চালু করুন" : lang === "hi" ? "ध्वनि बंद है — पहले चालू करें" : "Sound is off — enable it first");
+                    return;
+                  }
+                  speakVoiceTest();
+                  const langLabel = lang === "bn" ? "বাংলায়" : lang === "hi" ? "हिंदी में" : "in English";
+                  toast.success(`🎤 Playing voice test ${langLabel}`);
+                }}
+                className="w-full glass-card p-4 rounded-xl flex items-center justify-between hover:bg-primary/5 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Mic size={16} className="text-primary-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">
+                      {lang === "bn" ? "ভয়েস টেস্ট" : lang === "hi" ? "वॉयस टेस्ट" : "Voice Test"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {lang === "bn" ? `বর্তমান ভাষায় শুনুন (বাংলা)` : lang === "hi" ? `वर्तमान भाषा में सुनें (हिंदी)` : `Hear sample in current language (English)`}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold">
+                  ▶ PLAY
+                </div>
+              </button>
+
               <p className="text-[10px] text-muted-foreground text-center pt-1">Changes save automatically</p>
             </div>
           )}

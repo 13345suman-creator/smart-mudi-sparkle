@@ -315,18 +315,34 @@ th:nth-child(3){text-align:right}
       <div className="space-y-2">
         {filtered.map(entry => {
           const customerBills = getCustomerBills(entry.name, entry.phone);
+          const isAdvance = entry.amount < 0; // negative balance = customer has deposit
+          const advanceAmt = Math.abs(entry.amount);
           return (
-            <div key={entry.id} className="glass-card-hover p-3">
+            <div key={entry.id} className={`glass-card-hover p-3 ${isAdvance ? 'border border-success/40 ring-1 ring-success/20' : ''}`}>
               <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{entry.name}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-foreground">{entry.name}</p>
+                    {isAdvance && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-success text-success-foreground shadow-sm">
+                        💰 ADVANCE
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Phone size={10} /> {entry.phone} · {entry.date}
                     {entry.billNo && <span className="ml-1 text-primary">({entry.billNo})</span>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="font-display font-bold text-warning">₹{entry.amount.toLocaleString()}</p>
+                  <div className="text-right">
+                    <p className={`font-display font-bold ${isAdvance ? 'text-success' : 'text-warning'}`}>
+                      {isAdvance ? '+' : ''}₹{advanceAmt.toLocaleString()}
+                    </p>
+                    {isAdvance && (
+                      <p className="text-[9px] text-success/80 font-semibold">Deposit held</p>
+                    )}
+                  </div>
                   {(customerBills.length > 0 || (entry.payments || []).length > 0) && (
                     <button
                       onClick={() => setShowHistory(entry)}
@@ -339,8 +355,8 @@ th:nth-child(3){text-align:right}
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success">
-                  Receive Payment
+                <button onClick={() => { setShowPartial(entry); setPartialAmount(""); }} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold ${isAdvance ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success'}`}>
+                  {isAdvance ? 'Adjust / Refund' : 'Receive Payment'}
                 </button>
                 <button onClick={() => generateUdhariPDF(entry, false)} className="py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary" title="Download PDF">
                   <FileText size={14} />

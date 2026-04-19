@@ -42,18 +42,29 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
     };
   });
 
+  // Monthly countdown - days remaining until end of month
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const daysRemaining = daysInCurrentMonth - currentDay;
+  const isMonthEnd = daysRemaining <= 2; // Last 3 days
+  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
+  const isLastDay = daysRemaining === 0;
+
+  // Countdown text per language
+  const lang = (typeof window !== "undefined" && localStorage.getItem("smk_language")) || "en";
+  const monthEndLabel =
+    isLastDay
+      ? (lang === "bn" ? "🎯 আজ মাসের শেষ দিন!" : lang === "hi" ? "🎯 आज महीने का अंतिम दिन!" : "🎯 Last day of month!")
+      : daysRemaining === 1
+      ? (lang === "bn" ? "⏰ আগামীকাল মাস শেষ" : lang === "hi" ? "⏰ कल महीना खत्म" : "⏰ 1 day left")
+      : (lang === "bn" ? `⏳ ${daysRemaining} দিন বাকি` : lang === "hi" ? `⏳ ${daysRemaining} दिन शेष` : `⏳ ${daysRemaining} days left`);
+
   const stats = [
     { label: t("today_sales"), value: `${currency}${todaySales.toLocaleString()}`, icon: IndianRupee, gradient: "gradient-card-blue", change: `${todayBills.length} bills` },
-    { label: t("monthly_sales"), value: `${currency}${monthlySales.toLocaleString()}`, icon: TrendingUp, gradient: "gradient-card-green", change: `${monthlyBills.length} bills` },
+    { label: t("monthly_sales"), value: `${currency}${monthlySales.toLocaleString()}`, icon: TrendingUp, gradient: "gradient-card-green", change: monthEndLabel },
     { label: t("total_products"), value: String(products.length), icon: Package, gradient: "gradient-card-orange", change: `${products.filter(p => p.stock <= (p.lowStockAlert || 5)).length} low` },
     { label: t("pending_udhari"), value: `${currency}${pendingUdhari.toLocaleString()}`, icon: Users, gradient: "gradient-card-purple", change: `${udhariCustomers} ${t("customers")}` },
   ];
-
-  // Check if monthly report is available (last 3 days of month)
-  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const currentDay = now.getDate();
-  const isMonthEnd = currentDay >= daysInCurrentMonth - 2; // Last 3 days
-  const monthlyReportAvailable = isMonthEnd && monthlyBills.length > 0;
 
   // Generate daily chart data for monthly report
   const getDailyChartData = () => {
@@ -567,13 +578,30 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
       <div className="px-4 grid grid-cols-2 gap-3">
         {stats.map((stat, i) => {
           const Icon = stat.icon;
+          const isMonthlyHighlight = i === 1 && monthlyReportAvailable;
           return (
-            <button key={stat.label} onClick={() => setSelectedStat(i)} className={`glass-card-hover p-4 text-left ${stat.gradient} relative`} style={{ animationDelay: `${i * 100}ms` }}>
+            <button
+              key={stat.label}
+              onClick={() => setSelectedStat(i)}
+              className={`glass-card-hover p-4 text-left ${stat.gradient} relative overflow-hidden ${
+                isMonthlyHighlight ? 'ring-2 ring-warning/60 shadow-[0_0_24px_hsl(var(--warning)/0.45)] animate-pulse' : ''
+              }`}
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
+              {isMonthlyHighlight && (
+                <div className="absolute top-1 right-1 z-10">
+                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-warning text-warning-foreground shadow-md">
+                    🔥 NEW
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-foreground/10 flex items-center justify-center">
                   <Icon size={16} className="text-foreground" />
                 </div>
-                <span className="text-[10px] text-primary font-semibold">{stat.change}</span>
+                <span className={`text-[10px] font-semibold ${
+                  i === 1 && isMonthEnd ? 'text-warning font-bold' : 'text-primary'
+                }`}>{stat.change}</span>
               </div>
               <p className="text-lg font-bold font-display text-foreground">{stat.value}</p>
               <div className="flex items-center justify-between mt-0.5">
@@ -589,7 +617,7 @@ const AnalyticsCards = ({ todaySales = 0, pendingUdhari = 0, udhariCustomers = 0
                 {i === 1 && monthlyReportAvailable && (
                   <span
                     onClick={(e) => { e.stopPropagation(); generateSalesPDF("monthly"); }}
-                    className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors animate-pulse"
+                    className="flex items-center gap-1 text-[10px] font-bold text-warning bg-warning/15 px-2 py-1 rounded-lg hover:bg-warning/25 transition-colors animate-pulse"
                   >
                     <Download size={10} /> PDF
                   </span>
