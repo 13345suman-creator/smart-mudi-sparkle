@@ -158,42 +158,55 @@ const Settings = () => {
   };
 
   const exportData = async () => {
-    const data = {
-      bills: localStorage.getItem("smk_bills"),
-      udhari: localStorage.getItem("smk_udhari"),
-      paidoff: localStorage.getItem("smk_paidoff"),
-      settings: localStorage.getItem("smk_settings"),
-      products: localStorage.getItem("smk_products"),
-      exportDate: new Date().toISOString(),
-      version: "1.0",
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const fileName = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
-    
-    // Try File System Access API (lets user choose save location)
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        toast.success(t("toast_backup_exported"));
-        return;
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+    try {
+      const data = {
+        bills: localStorage.getItem("smk_bills"),
+        udhari: localStorage.getItem("smk_udhari"),
+        paidoff: localStorage.getItem("smk_paidoff"),
+        settings: localStorage.getItem("smk_settings"),
+        products: localStorage.getItem("smk_products"),
+        exportDate: new Date().toISOString(),
+        version: "1.0",
+      };
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const fileName = `smart-mudi-backup-${new Date().toISOString().split("T")[0]}.json`;
+
+      // Try File System Access API (only works in top-level secure contexts, not iframes)
+      const isTopFrame = window.self === window.top;
+      if (isTopFrame && 'showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast.success(t("toast_backup_exported") + " ✓ Saved to chosen location");
+          return;
+        } catch (err: any) {
+          if (err?.name === 'AbortError') return;
+          // Other errors (SecurityError, NotAllowedError) → fall through to download
+          console.warn("File picker unavailable, falling back to download:", err?.message);
+        }
       }
+
+      // Fallback: direct download to default Downloads folder
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(t("toast_backup_exported") + " ✓ Check Downloads folder");
+    } catch (err: any) {
+      console.error("Export failed:", err);
+      toast.error("Export failed: " + (err?.message || "Unknown error"));
     }
-    // Fallback: direct download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(t("toast_backup_exported"));
   };
 
   const importData = async (e?: React.ChangeEvent<HTMLInputElement>) => {

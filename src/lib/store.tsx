@@ -295,11 +295,30 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const total = 5;
       const checkLoaded = () => { loaded++; if (loaded >= total) { setLoading(false); firestoreActiveRef.current = true; } };
 
+      // Helper: re-upload local data if Firestore returns empty but local has entries
+      const reuploadIfNeeded = async <T extends { id: string }>(
+        path: string,
+        localData: T[],
+      ) => {
+        if (localData.length === 0) return;
+        try {
+          const batch = writeBatch(db);
+          localData.forEach(item => batch.set(doc(db, path, item.id), item));
+          await batch.commit();
+        } catch (e) { console.warn(`Re-upload to ${path} failed:`, e); }
+      };
+
       const unsubs = [
         onSnapshot(collection(db, `users/${uid}/bills`), (snap) => {
           if (cancelled) return;
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CompletedBill)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setBills(data);
+          // Guard: if firestore is empty but we have local data, preserve local & push up
+          const localBills = loadLocal<CompletedBill[]>(LS_KEYS.bills, []);
+          if (data.length === 0 && localBills.length > 0) {
+            reuploadIfNeeded(`users/${uid}/bills`, localBills);
+          } else {
+            setBills(data);
+          }
           checkLoaded();
         }, (error) => {
           console.warn("Bills listener error:", error.message);
@@ -307,7 +326,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         }),
         onSnapshot(collection(db, `users/${uid}/udhari`), (snap) => {
           if (cancelled) return;
-          setUdhariEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as UdhariEntry)));
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as UdhariEntry));
+          const localU = loadLocal<UdhariEntry[]>(LS_KEYS.udhari, []);
+          if (data.length === 0 && localU.length > 0) {
+            reuploadIfNeeded(`users/${uid}/udhari`, localU);
+          } else {
+            setUdhariEntries(data);
+          }
           checkLoaded();
         }, (error) => {
           console.warn("Udhari listener error:", error.message);
@@ -315,7 +340,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         }),
         onSnapshot(collection(db, `users/${uid}/paidoff`), (snap) => {
           if (cancelled) return;
-          setPaidOffCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() } as PaidOffCustomer)));
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as PaidOffCustomer));
+          const localP = loadLocal<PaidOffCustomer[]>(LS_KEYS.paidoff, []);
+          if (data.length === 0 && localP.length > 0) {
+            reuploadIfNeeded(`users/${uid}/paidoff`, localP);
+          } else {
+            setPaidOffCustomers(data);
+          }
           checkLoaded();
         }, (error) => {
           console.warn("Paidoff listener error:", error.message);
@@ -331,7 +362,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         }),
         onSnapshot(collection(db, `users/${uid}/products`), (snap) => {
           if (cancelled) return;
-          setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
+          const localPr = loadLocal<Product[]>(LS_KEYS.products, []);
+          if (data.length === 0 && localPr.length > 0) {
+            reuploadIfNeeded(`users/${uid}/products`, localPr);
+          } else {
+            setProducts(data);
+          }
           checkLoaded();
         }, (error) => {
           console.warn("Products listener error:", error.message);

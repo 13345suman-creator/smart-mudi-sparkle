@@ -39,16 +39,42 @@ const Udhari = () => {
   const totalPending = udhariEntries.reduce((s, e) => s + e.amount, 0);
 
   const handleAdd = () => {
-    if (!newEntry.name || !newEntry.amount) return;
+    // Mandatory: name, phone, amount
+    if (!newEntry.name.trim()) {
+      toast.error("Customer name is required");
+      return;
+    }
+    if (!newEntry.phone.trim() || newEntry.phone.trim().length < 7) {
+      toast.error("Valid phone number is required");
+      return;
+    }
+    if (!newEntry.amount || isNaN(Number(newEntry.amount)) || Number(newEntry.amount) === 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    const phone = newEntry.phone.trim();
+    const name = newEntry.name.trim();
+
+    // Duplicate check in active udhari (same name+phone or just phone)
+    const dupActive = udhariEntries.find(
+      e => e.phone === phone || (e.name.toLowerCase() === name.toLowerCase() && e.phone === phone)
+    );
+    if (dupActive) {
+      // Auto-merge into existing entry (advance allowed - amount can be negative for deposit)
+      doAddUdhari({ name, phone, amount: newEntry.amount });
+      toast.success(`Merged with existing entry for ${dupActive.name}`);
+      return;
+    }
+
     const existsInPaidOff = paidOffCustomers.find(
-      p => p.phone === newEntry.phone && p.name.toLowerCase() === newEntry.name.toLowerCase()
+      p => p.phone === phone || p.name.toLowerCase() === name.toLowerCase()
     );
     if (existsInPaidOff) {
-      setPendingNewEntry(newEntry);
+      setPendingNewEntry({ name, phone, amount: newEntry.amount });
       setShowMergePrompt(true);
       return;
     }
-    doAddUdhari(newEntry);
+    doAddUdhari({ name, phone, amount: newEntry.amount });
   };
 
   const doAddUdhari = (entry: { name: string; phone: string; amount: string }) => {
@@ -345,9 +371,10 @@ th:nth-child(3){text-align:right}
               <button onClick={() => setShowAdd(false)} className="text-muted-foreground"><X size={20} /></button>
             </div>
             <div className="space-y-3">
-              <input value={newEntry.name} onChange={e => setNewEntry({ ...newEntry, name: e.target.value })} placeholder="Customer Name" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
-              <input value={newEntry.phone} onChange={e => setNewEntry({ ...newEntry, phone: e.target.value })} placeholder="Phone Number" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
-              <input value={newEntry.amount} onChange={e => setNewEntry({ ...newEntry, amount: e.target.value })} placeholder="Amount (₹)" type="number" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+              <input value={newEntry.name} onChange={e => setNewEntry({ ...newEntry, name: e.target.value })} placeholder="Customer Name *" required className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+              <input value={newEntry.phone} onChange={e => setNewEntry({ ...newEntry, phone: e.target.value })} placeholder="Phone Number * (required)" type="tel" required className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+              <input value={newEntry.amount} onChange={e => setNewEntry({ ...newEntry, amount: e.target.value })} placeholder="Amount (₹) — use negative for advance deposit" type="number" className="w-full glass-card px-3 py-2.5 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
+              <p className="text-[10px] text-muted-foreground px-1">💡 Tip: Enter negative amount (e.g. -500) to record an advance deposit. Same name+phone will auto-merge.</p>
               <button onClick={handleAdd} className="w-full gradient-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">Add Udhari</button>
             </div>
           </div>
