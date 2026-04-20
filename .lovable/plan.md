@@ -1,91 +1,88 @@
 
-User question: Median (medianapp.com) দিয়ে APK বানিয়ে phone এ install করার পর Lovable এ যে updates করছেন সেগুলো APK তে properly reflect হচ্ছে না কেন?
+## সমস্যা বিশ্লেষণ
 
-This is a research/explanation question, not an implementation task. But let me check the capacitor config to understand the current setup and give an accurate answer.
+User বলছেন: Lovable preview এ সব ঠিক কাজ করছে, কিন্তু installed APK (Median WebView) এ app বন্ধ করে আবার খুললে bills, udhari, সব data delete হয়ে যাচ্ছে।
 
-Looking at `capacitor.config.ts`:
-```
-server: {
-  url: 'https://650c5b6d-a3b0-4cf6-a221-2ab5f4ec7bf9.lovableproject.com?forceHideBadge=true',
-  cleartext: true
-}
-```
+## Root Cause
 
-Key insight: Median.co works completely differently from Capacitor. Median wraps a URL into a WebView APK. The user has TWO separate wrapper systems potentially in play.
+Median WebView APK এর behavior browser এর থেকে আলাদা:
 
-## কেন আপনার APK তে updates ঠিকমতো আসছে না
+1. **localStorage clearing**: Median এর default setting এ অনেক সময় app close হলে WebView এর storage clear হয়ে যায় (specially যদি "Clear cache on exit" enabled থাকে অথবা WebView storage permission ঠিক না থাকে)
 
-### মূল কারণ: Median একটা Snapshot তৈরি করে
+2. **Firebase async race condition (existing bug)**: 
+   - App restart হলে `useStore` mount হয়
+   - `localStorage` থেকে data load হয় (যদি থাকে)
+   - তারপর Firebase listener attach হয়
+   - Firebase যদি empty snapshot return করে (user logged out, বা slow network), `mergeById` চলে — কিন্তু যদি localStorage ও empty থাকে (Median cleared করেছে), তাহলে দুই দিকেই empty
+   - Result: সব gone
 
-Median.co যখন আপনার APK build করে, তখন এটা আপনার Lovable preview URL টাকে একটা WebView এর ভেতরে wrap করে। এর মানে:
+3. **Median WebView এ IndexedDB/localStorage isolation**: Median এর কিছু configuration এ প্রতিবার fresh WebView session তৈরি হয়, যেটা localStorage persist করে না
 
-1. **APK নিজে কোনো code রাখে না** — এটা শুধু একটা browser যেটা আপনার URL load করে
-2. **Updates live আসা উচিত** — যেহেতু URL load হয়, Lovable এ যা change করবেন সেটা refresh করলে দেখা যাওয়ার কথা
+4. **Service Worker stale state**: PWA cache APK এ corrupt হয়ে গেলে fresh empty state load হয়
 
-### আসল সমস্যা গুলো (probable causes)
+## Verification Plan
 
-**১. Preview URL vs Published URL সমস্যা**
-- আপনার `capacitor.config.ts` এ আছে: `lovableproject.com` (preview URL)
-- Median সম্ভবত এই preview URL দিয়েই বানানো হয়েছে
-- Preview URL এ login লাগে এবং এটা stable নয়
-- **সমাধান**: Published URL (`smart-mudi-sparkle.lovable.app`) ব্যবহার করতে হবে
+আগে কিছু files check করব:
+- `src/lib/store.tsx` — কীভাবে localStorage থেকে initial load হচ্ছে এবং Firebase merge logic
+- Median এ data persistence এর জন্য কী strategy আছে দেখব
 
-**২. Frontend changes Publish না করা**
-- Lovable এ frontend changes (UI, code) **automatic deploy হয় না**
-- প্রতিবার Publish button এ click করে "Update" করতে হয়
-- নাহলে published URL এ পুরনো version ই থাকবে
-- আপনি যদি শুধু Lovable editor এ changes করেন কিন্তু Publish না করেন, APK তে কিছুই আসবে না
+## Solution Approach
 
-**৩. WebView Cache Problem**
-- Median এর WebView পুরনো HTML/JS/CSS cache করে রাখে
-- Service Worker (PWA) আরো aggressive caching করে
-- App restart করলেও cached version load হয়
+### Layer 1: Code-level Fixes (Lovable side)
 
-**৪. PWA Service Worker conflict**
-- আপনার `vite.config.ts` এ `VitePWA` enabled with `registerType: "autoUpdate"`
-- Service Worker পুরনো assets cache করে রাখে
-- Update আসলেও user কে app বন্ধ করে আবার খুলতে হয় (কখনো কখনো ২ বার)
+**A. Defensive localStorage strategy in `src/lib/store.tsx`**
+- প্রতি save এর পর immediate verify করব localStorage এ লেখা হয়েছে কিনা
+- Firebase listener এ guard add করব: যদি Firebase empty return করে কিন্তু localStorage এ আগে data ছিল (last-known state), localStorage এর data কেই source of truth ধরব
+- "Last sync timestamp" track করব — আগের session এর data থাকলে কখনো wipe করব না
 
-**৫. Median Build পুরনো**
-- Median তে যদি একবার build করেন, ওই APK এর ভেতরের configuration (URL, splash, icon) fixed
-- Lovable এ code change করলে Median APK rebuild করতে হয় না, কিন্তু URL এর content auto-update হওয়ার কথা
+**B. Backup mirror in IndexedDB**
+- localStorage ছাড়াও IndexedDB তে parallel backup রাখব
+- Median এর কিছু configuration localStorage clear করে কিন্তু IndexedDB রাখে (অথবা উল্টোটা)
+- Both check করে whichever has data সেটা restore করব
 
-## সঠিক Workflow (যেটা আপনার follow করা উচিত)
+**C. Auto-recovery on mount**
+- App mount হওয়ার সময় যদি দেখা যায় localStorage empty কিন্তু IndexedDB তে data আছে → restore
+- যদি দেখা যায় Firebase তে data আছে কিন্তু local empty → Firebase থেকে pull
+
+### Layer 2: User-side Median Configuration (Instructions)
+
+User কে Median dashboard এ এই settings change করতে হবে:
+- **WebView Settings** → "Persistent Storage" = ON
+- **WebView Settings** → "Clear cache on exit" = OFF  
+- **App Permissions** → Storage permission grant করতে হবে install এর পরে
+- **DOM Storage** এবং **Database Storage** = enabled
+
+### Files to Modify
+
+1. **`src/lib/store.tsx`** — IndexedDB mirror, defensive merge, never-wipe guard
+2. **`src/lib/persistentStorage.ts`** (NEW) — Wrapper around localStorage + IndexedDB with auto-fallback
+
+## Plan Steps
 
 ```text
-Lovable এ change করুন
-       ↓
-Publish button → Update click করুন (MANDATORY)
-       ↓
-Published URL এ change verify করুন (browser এ)
-       ↓
-APK খুলুন → Pull-to-refresh / App restart
-       ↓
-যদি না আসে → App data clear করুন (Settings → Apps → Clear Cache)
+1. src/lib/persistentStorage.ts (NEW)
+   - Dual-write to localStorage + IndexedDB
+   - Read: try localStorage first, fallback IndexedDB
+   - On mismatch: restore the larger/newer set to both
+
+2. src/lib/store.tsx
+   - Replace direct localStorage.getItem/setItem calls 
+     with persistentStorage wrapper for: 
+     bills, udhari, products, paidUdhari
+   - Add "lastDataTimestamp" guard:
+     If Firebase snapshot is empty AND local has data 
+     AND last save was <30 days ago → DO NOT overwrite local
+   - On mount: hydrate from IndexedDB if localStorage is empty
+
+3. Provide Median configuration instructions to user 
+   (no code change needed, just docs)
 ```
 
-## Recommended Solutions (২টা option)
+## What user must also do
 
-### Option A: Median ঠিক করুন (Quick Fix)
-1. Lovable এ **Publish → Update** click করুন প্রতিটা change এর পর
-2. Median dashboard এ গিয়ে URL change করুন: `https://smart-mudi-sparkle.lovable.app`
-3. APK rebuild করে install করুন
-4. Phone এর Settings → Apps → Smart Mudi Khana → **Clear Cache & Storage**
+Code fix করার পর APK তে:
+1. App uninstall → reinstall (ekbar fresh state দরকার)
+2. Median dashboard এ Persistent Storage enable
+3. Phone Settings → App permissions → Storage allow
 
-### Option B: Capacitor ব্যবহার করুন (Recommended - Professional)
-আপনার project এ already `capacitor.config.ts` configured আছে। Capacitor দিয়ে বানালে:
-- Lovable এর সাথে সরাসরি integrated
-- Hot reload support (development এ)
-- Better native features (camera, notifications, file system)
-- Play Store এ publish করার uplate path
-
-আমি Capacitor config টা optimize করে দিতে পারি যাতে published URL ব্যবহার করে এবং properly hot-reload হয়।
-
-## প্রশ্ন
-
-কোনটা করতে চান বলুন:
-1. শুধু explanation চেয়েছিলেন — workflow follow করবেন (Median রাখবেন)
-2. Capacitor config update করতে চান (published URL দিয়ে)
-3. Service Worker cache problem fix করতে চান (PWA disable বা update strategy change)
-
-**কোনো code change এই message এ করিনি — শুধু analysis।** আপনি বললে নিচের যেকোনো টা করতে পারি।
+কোনো প্রশ্ন আছে নাকি plan টা approve করব?
