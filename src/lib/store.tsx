@@ -163,6 +163,14 @@ function saveLocal<T>(key: string, data: T) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
 }
 
+function mergeById<T extends { id: string }>(preferred: T[], fallback: T[]): T[] {
+  if (preferred.length === 0) return fallback;
+  if (fallback.length === 0) return preferred;
+
+  const seen = new Set(preferred.map((item) => item.id));
+  return [...preferred, ...fallback.filter((item) => !seen.has(item.id))];
+}
+
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
@@ -317,7 +325,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (data.length === 0 && localBills.length > 0) {
             reuploadIfNeeded(`users/${uid}/bills`, localBills);
           } else {
-            setBills(data);
+            setBills(mergeById(data, localBills));
           }
           checkLoaded();
         }, (error) => {
@@ -331,7 +339,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (data.length === 0 && localU.length > 0) {
             reuploadIfNeeded(`users/${uid}/udhari`, localU);
           } else {
-            setUdhariEntries(data);
+            setUdhariEntries(mergeById(data, localU));
           }
           checkLoaded();
         }, (error) => {
@@ -345,7 +353,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (data.length === 0 && localP.length > 0) {
             reuploadIfNeeded(`users/${uid}/paidoff`, localP);
           } else {
-            setPaidOffCustomers(data);
+            setPaidOffCustomers(mergeById(data, localP));
           }
           checkLoaded();
         }, (error) => {
@@ -493,7 +501,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const newAmount = entry.amount - amount;
     const newPayments = [...(entry.payments || []), payment];
 
-    if (newAmount <= 0) {
+    if (newAmount < 0) {
+      const advancedEntry: UdhariEntry = {
+        ...entry,
+        amount: newAmount,
+        payments: newPayments,
+      };
+      setUdhariEntries(prev => prev.map(e => e.id === id ? advancedEntry : e));
+      if (isOnline) {
+        try { await updateDoc(doc(db, `users/${uid}/udhari`, id), { amount: newAmount, payments: newPayments }); } catch (e) { console.warn(e); }
+      }
+      return;
+    }
+
+    if (newAmount === 0) {
       const paidOff: PaidOffCustomer = {
         id: entry.id,
         name: entry.name,

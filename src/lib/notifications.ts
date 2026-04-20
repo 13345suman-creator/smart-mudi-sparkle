@@ -8,10 +8,19 @@ function isSoundEnabled(): boolean {
   return localStorage.getItem("smk_sound") !== "false";
 }
 
+function unlockAudioContext(ctx: AudioContext) {
+  if (ctx.state === "suspended") {
+    ctx.resume().catch(() => {});
+  }
+}
+
 function playSound() {
   if (!isSoundEnabled()) return;
   try {
-    const ctx = new AudioContext();
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    unlockAudioContext(ctx);
     const now = ctx.currentTime;
 
     // First tone - pleasant chime
@@ -75,6 +84,7 @@ function speak(message: string) {
   if (!isSoundEnabled()) return;
   try {
     const synth = window.speechSynthesis;
+    if (!synth) return;
     const targetLang = getSpeechLang();
 
     const doSpeak = () => {
@@ -86,7 +96,19 @@ function speak(message: string) {
       utterance.rate = 0.95;
       utterance.pitch = 1;
       utterance.volume = 1;
+      const fallbackBeep = () => playSound();
+      utterance.onerror = fallbackBeep;
       synth.speak(utterance);
+
+      if (synth.paused) {
+        synth.resume();
+      }
+
+      setTimeout(() => {
+        if (!synth.speaking) {
+          fallbackBeep();
+        }
+      }, 900);
     };
 
     if (synth.getVoices().length === 0) {
