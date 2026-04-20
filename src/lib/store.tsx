@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { notifyBill, notifyUdhari, notifyLowStock } from "./notifications";
 import { useAuth } from "./auth";
 import { db } from "./firebase";
+import { mergeById } from "./mergeById";
 import {
   collection,
   doc,
@@ -161,14 +162,6 @@ function loadLocal<T>(key: string, fallback: T): T {
 
 function saveLocal<T>(key: string, data: T) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
-}
-
-function mergeById<T extends { id: string }>(preferred: T[], fallback: T[]): T[] {
-  if (preferred.length === 0) return fallback;
-  if (fallback.length === 0) return preferred;
-
-  const seen = new Set(preferred.map((item) => item.id));
-  return [...preferred, ...fallback.filter((item) => !seen.has(item.id))];
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
