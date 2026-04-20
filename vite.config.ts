@@ -17,6 +17,10 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
+      devOptions: {
+        enabled: false,
+      },
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
         name: "Smart Mudi Khana",
@@ -49,12 +53,34 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallbackDenylist: [/^\/~oauth/],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallback: "/index.html",
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html-cache",
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 10, maxAgeSeconds: 3600 },
+            },
+          },
+          {
+            urlPattern: /\.(?:js|css)$/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "assets-cache",
+              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
+            },
+          },
           {
             urlPattern: /^https:\/\/firestore\.googleapis\.com/,
             handler: "NetworkFirst",
             options: {
               cacheName: "firestore-cache",
+              networkTimeoutSeconds: 5,
               expiration: { maxEntries: 50, maxAgeSeconds: 86400 },
             },
           },

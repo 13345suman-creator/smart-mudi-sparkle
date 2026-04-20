@@ -5,9 +5,14 @@ const config: CapacitorConfig = {
   appName: 'Smart Mudi Khana',
   webDir: 'dist',
   server: {
-    url: 'https://650c5b6d-a3b0-4cf6-a221-2ab5f4ec7bf9.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  }
+    url: 'https://smart-mudi-sparkle.lovable.app',
+    cleartext: true,
+    androidScheme: 'https',
+  },
+  android: {
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true,
+  },
 };
 
 export default config;
