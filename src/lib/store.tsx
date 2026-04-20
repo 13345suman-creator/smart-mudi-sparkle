@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { notifyBill, notifyUdhari, notifyLowStock } from "./notifications";
 import { useAuth } from "./auth";
 import { db } from "./firebase";
+import { mergeById } from "./mergeById";
 import {
   collection,
   doc,
