@@ -61,6 +61,10 @@ export interface CompletedBill {
   date: string;
   billNo: string;
   paymentConfirmed: boolean;
+  /** Amount of customer's advance/deposit applied to this bill */
+  advanceUsed?: number;
+  /** UdhariEntry id whose advance was used */
+  advanceCustomerId?: string;
 }
 
 export interface PaymentRecord {
@@ -126,6 +130,8 @@ interface StoreContextType {
   payUdhari: (id: string, amount: number, method?: string, note?: string) => void;
   deleteUdhari: (id: string) => void;
   deletePaidOff: (id: string) => void;
+  /** Apply customer's advance to a bill amount. Returns how much was actually used. */
+  applyAdvance: (customerId: string, billAmount: number, billNo?: string) => Promise<number>;
   settings: ShopSettings;
   updateSettings: (s: Partial<ShopSettings>) => void;
   products: Product[];
