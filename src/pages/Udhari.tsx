@@ -36,7 +36,8 @@ const Udhari = () => {
     e.name.toLowerCase().includes(search.toLowerCase()) || e.phone.includes(search)
   );
 
-  const totalPending = udhariEntries.reduce((s, e) => s + e.amount, 0);
+  const totalPending = udhariEntries.reduce((s, e) => s + Math.max(0, e.amount), 0);
+  const totalAdvance = udhariEntries.reduce((s, e) => s + Math.max(0, -e.amount), 0);
 
   const handleAdd = () => {
     // Mandatory: name, phone, amount
@@ -290,11 +291,17 @@ th:nth-child(3){text-align:right}
               <TrendingDown size={20} className="text-warning" />
             </div>
           </div>
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 flex-wrap">
             <div className="flex items-center gap-1.5">
               <Users size={12} className="text-muted-foreground" />
               <span className="text-xs text-muted-foreground"><span className="font-bold text-foreground">{udhariEntries.length}</span> customers</span>
             </div>
+            {totalAdvance > 0 && (
+              <div className="flex items-center gap-1.5">
+                <IndianRupee size={12} className="text-success" />
+                <span className="text-xs text-muted-foreground"><span className="font-bold text-success">₹{totalAdvance.toLocaleString()}</span> advance held</span>
+              </div>
+            )}
             {paidOffCustomers.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <UserCheck size={12} className="text-success" />

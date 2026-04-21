@@ -107,7 +107,7 @@ th{padding:3px 2px;font-size:9px;text-transform:uppercase;border-bottom:1px soli
 };
 
 const Billing = () => {
-  const { bills, addBill, confirmBillPayment, deleteBill, addUdhari, settings, products: storeProducts } = useStore();
+  const { bills, addBill, confirmBillPayment, deleteBill, addUdhari, applyAdvance, udhariEntries, settings, products: storeProducts } = useStore();
 
   const productCatalog = useMemo(() =>
     storeProducts.map(p => ({
@@ -134,6 +134,8 @@ const Billing = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [lastBill, setLastBill] = useState<CompletedBill | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [advanceCustomerId, setAdvanceCustomerId] = useState<string>("");
+  const [showAdvancePicker, setShowAdvancePicker] = useState(false);
   const [deleteBillConfirm, setDeleteBillConfirm] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const billLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,6 +143,19 @@ const Billing = () => {
 
   const total = items.reduce((sum, item) => sum + item.money, 0);
   const configuredUpis = settings.upiIds.filter(u => u.trim());
+
+  // Customers with advance balance (negative amount = deposit held)
+  const advanceCustomers = useMemo(
+    () => udhariEntries.filter(e => e.amount < 0),
+    [udhariEntries]
+  );
+  const selectedAdvanceCustomer = useMemo(
+    () => advanceCustomers.find(e => e.id === advanceCustomerId),
+    [advanceCustomers, advanceCustomerId]
+  );
+  const advanceAvailable = selectedAdvanceCustomer ? Math.abs(selectedAdvanceCustomer.amount) : 0;
+  const advanceToUse = Math.min(advanceAvailable, total);
+  const effectiveTotal = Math.max(0, Math.round((total - advanceToUse) * 100) / 100);
 
   // Sort bills newest first
   const sortedBills = useMemo(() => [...bills].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [bills]);
@@ -258,43 +273,62 @@ const Billing = () => {
     ));
   };
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!paymentMode) return;
     if (paymentMode === "udhari" && (!udhariName || !udhariPhone)) return;
     if (paymentMode === "upi" && configuredUpis.length > 0 && !selectedUpi) return;
 
+    const billNo = generateBillNo();
+    const billTotalRounded = Math.round(total * 100) / 100;
+    const advUsed = selectedAdvanceCustomer ? Math.min(Math.abs(selectedAdvanceCustomer.amount), billTotalRounded) : 0;
+    const remainingPayable = Math.max(0, Math.round((billTotalRounded - advUsed) * 100) / 100);
+
+    // For udhari mode, the new udhari amount = remaining after advance applied
+    const udhariAmountToRecord = remainingPayable;
+
     const newBill: CompletedBill = {
       id: Date.now().toString(),
       items: [...items],
-      total: Math.round(total * 100) / 100,
+      total: billTotalRounded,
       paymentMode,
       upiApp: paymentMode === "upi" ? selectedUpi : undefined,
-      customerName: paymentMode === "udhari" ? udhariName : customerName || undefined,
-      customerPhone: paymentMode === "udhari" ? udhariPhone : undefined,
+      customerName: paymentMode === "udhari"
+        ? udhariName
+        : (selectedAdvanceCustomer ? selectedAdvanceCustomer.name : (customerName || undefined)),
+      customerPhone: paymentMode === "udhari"
+        ? udhariPhone
+        : (selectedAdvanceCustomer ? selectedAdvanceCustomer.phone : undefined),
       date: new Date().toISOString(),
-      billNo: generateBillNo(),
-      paymentConfirmed: paymentMode === "cash",
+      billNo,
+      paymentConfirmed: paymentMode === "cash" || (advUsed >= billTotalRounded),
+      advanceUsed: advUsed > 0 ? advUsed : undefined,
+      advanceCustomerId: advUsed > 0 ? selectedAdvanceCustomer!.id : undefined,
     };
 
     addBill(newBill);
     setLastBill(newBill);
 
-    if (paymentMode !== "udhari") {
-      speakBillPayment(newBill.total, paymentMode);
+    // Apply advance deduction (updates udhari entry, may promote to PaidOff)
+    if (advUsed > 0 && selectedAdvanceCustomer) {
+      await applyAdvance(selectedAdvanceCustomer.id, billTotalRounded, billNo);
     }
 
-    if (paymentMode === "udhari") {
+    if (paymentMode !== "udhari") {
+      speakBillPayment(remainingPayable, paymentMode);
+    }
+
+    if (paymentMode === "udhari" && udhariAmountToRecord > 0) {
       addUdhari({
         id: `udhari-${Date.now()}`,
         name: udhariName,
         phone: udhariPhone,
-        amount: newBill.total,
-        totalBilled: newBill.total,
+        amount: udhariAmountToRecord,
+        totalBilled: udhariAmountToRecord,
         date: new Date().toISOString().split("T")[0],
         billNo: newBill.billNo,
         payments: [],
       });
-      speakNewUdhari(udhariName, newBill.total);
+      speakNewUdhari(udhariName, udhariAmountToRecord);
     }
 
     setShowPayment(false);
@@ -312,6 +346,8 @@ const Billing = () => {
     setUdhariName("");
     setUdhariPhone("");
     setCustomerName("");
+    setAdvanceCustomerId("");
+    setShowAdvancePicker(false);
     setLastBill(null);
   };
 
@@ -750,6 +786,18 @@ const Billing = () => {
                   </div>
                 ))}
               </div>
+              {advanceToUse > 0 && (
+                <div className="mt-2 pt-2 border-t border-dashed border-border space-y-0.5">
+                  <div className="flex justify-between text-[11px] text-success">
+                    <span>Advance applied ({selectedAdvanceCustomer?.name})</span>
+                    <span className="font-semibold">−₹{advanceToUse.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-foreground">To pay now</span>
+                    <span className="gradient-text">₹{effectiveTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Customer name (optional) */}
@@ -759,6 +807,56 @@ const Billing = () => {
                   className="w-full glass-card px-3 py-2 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
               </div>
             )}
+
+            {/* Use Customer Advance */}
+            {advanceCustomers.length > 0 && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancePicker(s => !s)}
+                  className="w-full glass-card px-3 py-2 rounded-lg flex items-center justify-between text-xs"
+                >
+                  <span className="flex items-center gap-2 text-foreground">
+                    <Users size={14} className="text-success" />
+                    {selectedAdvanceCustomer
+                      ? <>Using <strong>{selectedAdvanceCustomer.name}</strong>'s advance (₹{Math.abs(selectedAdvanceCustomer.amount).toLocaleString()})</>
+                      : <>Use customer advance ({advanceCustomers.length} available)</>
+                    }
+                  </span>
+                  <span className="text-muted-foreground">{showAdvancePicker ? '▲' : '▼'}</span>
+                </button>
+                {showAdvancePicker && (
+                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
+                    {selectedAdvanceCustomer && (
+                      <button
+                        type="button"
+                        onClick={() => { setAdvanceCustomerId(""); setShowAdvancePicker(false); }}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs bg-destructive/10 text-destructive font-semibold"
+                      >
+                        ✕ Don't use any advance
+                      </button>
+                    )}
+                    {advanceCustomers.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setAdvanceCustomerId(c.id); setShowAdvancePicker(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                          advanceCustomerId === c.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold truncate">{c.name}</span>
+                          <span className="ml-2 font-bold">₹{Math.abs(c.amount).toLocaleString()}</span>
+                        </div>
+                        <div className="text-[10px] opacity-70">{c.phone}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
 
             {/* Payment Methods */}
             <p className="text-xs text-muted-foreground mb-2">Payment Method</p>
@@ -826,7 +924,12 @@ const Billing = () => {
           <h2 className="font-display text-2xl font-bold text-foreground mb-2">
             {paymentMode === "udhari" ? "Udhari Recorded!" : "Payment Received!"}
           </h2>
-          <p className="text-3xl font-bold gradient-text mb-2">₹{Math.round(total * 100) / 100}</p>
+          <p className="text-3xl font-bold gradient-text mb-2">₹{(lastBill?.total ?? Math.round(total * 100) / 100).toLocaleString()}</p>
+          {lastBill?.advanceUsed && lastBill.advanceUsed > 0 && (
+            <p className="text-sm text-success mb-1 font-semibold">
+              Advance applied: −₹{lastBill.advanceUsed.toLocaleString()} • Paid: ₹{Math.max(0, (lastBill.total - lastBill.advanceUsed)).toLocaleString()}
+            </p>
+          )}
           {lastBill?.upiApp && <p className="text-sm text-muted-foreground mb-4">via {lastBill.upiApp}</p>}
           <div className="flex gap-3 mb-4">
             {!lastBill?.paymentConfirmed && paymentMode !== "udhari" && (

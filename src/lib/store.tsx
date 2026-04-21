@@ -61,6 +61,10 @@ export interface CompletedBill {
   date: string;
   billNo: string;
   paymentConfirmed: boolean;
+  /** Amount of customer's advance/deposit applied to this bill */
+  advanceUsed?: number;
+  /** UdhariEntry id whose advance was used */
+  advanceCustomerId?: string;
 }
 
 export interface PaymentRecord {
@@ -126,6 +130,8 @@ interface StoreContextType {
   payUdhari: (id: string, amount: number, method?: string, note?: string) => void;
   deleteUdhari: (id: string) => void;
   deletePaidOff: (id: string) => void;
+  /** Apply customer's advance to a bill amount. Returns how much was actually used. */
+  applyAdvance: (customerId: string, billAmount: number, billNo?: string) => Promise<number>;
   settings: ShopSettings;
   updateSettings: (s: Partial<ShopSettings>) => void;
   products: Product[];
@@ -571,6 +577,58 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  /**
+   * Apply a customer's advance (negative-amount UdhariEntry) to a bill.
+   * Returns the amount of advance actually used.
+   */
+  const applyAdvance = async (customerId: string, billAmount: number, billNo?: string): Promise<number> => {
+    const entry = udhariEntries.find(e => e.id === customerId);
+    if (!entry || entry.amount >= 0 || billAmount <= 0) return 0;
+    const advanceAvailable = Math.abs(entry.amount);
+    const used = Math.min(advanceAvailable, billAmount);
+    const now = new Date();
+    const usageRecord: PaymentRecord = {
+      id: Date.now().toString(),
+      udhariId: customerId,
+      amount: -used,
+      date: now.toISOString().split("T")[0],
+      time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      method: "advance-used",
+      note: billNo ? `Applied to bill ${billNo}` : "Advance applied to new bill",
+    };
+    const newAmount = entry.amount + used;
+    const newPayments = [...(entry.payments || []), usageRecord];
+
+    if (newAmount === 0) {
+      const paidOff: PaidOffCustomer = {
+        id: entry.id,
+        name: entry.name,
+        phone: entry.phone,
+        totalBilled: entry.totalBilled,
+        totalPaid: newPayments.reduce((s, p) => s + p.amount, 0),
+        clearedDate: now.toISOString().split("T")[0],
+        payments: newPayments,
+        billNos: entry.billNo ? [entry.billNo] : [],
+      };
+      setUdhariEntries(prev => prev.filter(e => e.id !== customerId));
+      setPaidOffCustomers(prev => [...prev, paidOff]);
+      if (isOnline) {
+        try {
+          const batch = writeBatch(db);
+          batch.delete(doc(db, `users/${uid}/udhari`, customerId));
+          batch.set(doc(db, `users/${uid}/paidoff`, paidOff.id), paidOff);
+          await batch.commit();
+        } catch (e) { console.warn(e); }
+      }
+    } else {
+      setUdhariEntries(prev => prev.map(e => e.id === customerId ? { ...e, amount: newAmount, payments: newPayments } : e));
+      if (isOnline) {
+        try { await updateDoc(doc(db, `users/${uid}/udhari`, customerId), { amount: newAmount, payments: newPayments }); } catch (e) { console.warn(e); }
+      }
+    }
+    return used;
+  };
+
   const deletePaidOff = async (id: string) => {
     const entry = paidOffCustomers.find(e => e.id === id);
     setPaidOffCustomers(prev => prev.filter(e => e.id !== id));
@@ -629,6 +687,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     <StoreContext.Provider value={{
       bills, addBill, confirmBillPayment, deleteBill,
       udhariEntries, paidOffCustomers, addUdhari, payUdhari, deleteUdhari, deletePaidOff,
+      applyAdvance,
       settings, updateSettings,
       products, addProduct, updateProduct, deleteProduct,
       loading,
