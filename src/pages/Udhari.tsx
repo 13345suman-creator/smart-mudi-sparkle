@@ -36,7 +36,8 @@ const Udhari = () => {
     e.name.toLowerCase().includes(search.toLowerCase()) || e.phone.includes(search)
   );
 
-  const totalPending = udhariEntries.reduce((s, e) => s + e.amount, 0);
+  const totalPending = udhariEntries.reduce((s, e) => s + Math.max(0, e.amount), 0);
+  const totalAdvance = udhariEntries.reduce((s, e) => s + Math.max(0, -e.amount), 0);
 
   const handleAdd = () => {
     // Mandatory: name, phone, amount

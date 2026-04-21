@@ -924,7 +924,12 @@ const Billing = () => {
           <h2 className="font-display text-2xl font-bold text-foreground mb-2">
             {paymentMode === "udhari" ? "Udhari Recorded!" : "Payment Received!"}
           </h2>
-          <p className="text-3xl font-bold gradient-text mb-2">₹{Math.round(total * 100) / 100}</p>
+          <p className="text-3xl font-bold gradient-text mb-2">₹{(lastBill?.total ?? Math.round(total * 100) / 100).toLocaleString()}</p>
+          {lastBill?.advanceUsed && lastBill.advanceUsed > 0 && (
+            <p className="text-sm text-success mb-1 font-semibold">
+              Advance applied: −₹{lastBill.advanceUsed.toLocaleString()} • Paid: ₹{Math.max(0, (lastBill.total - lastBill.advanceUsed)).toLocaleString()}
+            </p>
+          )}
           {lastBill?.upiApp && <p className="text-sm text-muted-foreground mb-4">via {lastBill.upiApp}</p>}
           <div className="flex gap-3 mb-4">
             {!lastBill?.paymentConfirmed && paymentMode !== "udhari" && (
