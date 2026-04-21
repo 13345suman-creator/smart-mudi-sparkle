@@ -786,6 +786,18 @@ const Billing = () => {
                   </div>
                 ))}
               </div>
+              {advanceToUse > 0 && (
+                <div className="mt-2 pt-2 border-t border-dashed border-border space-y-0.5">
+                  <div className="flex justify-between text-[11px] text-success">
+                    <span>Advance applied ({selectedAdvanceCustomer?.name})</span>
+                    <span className="font-semibold">−₹{advanceToUse.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-foreground">To pay now</span>
+                    <span className="gradient-text">₹{effectiveTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Customer name (optional) */}
@@ -795,6 +807,56 @@ const Billing = () => {
                   className="w-full glass-card px-3 py-2 text-sm text-foreground bg-transparent outline-none rounded-lg placeholder:text-muted-foreground" />
               </div>
             )}
+
+            {/* Use Customer Advance */}
+            {advanceCustomers.length > 0 && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancePicker(s => !s)}
+                  className="w-full glass-card px-3 py-2 rounded-lg flex items-center justify-between text-xs"
+                >
+                  <span className="flex items-center gap-2 text-foreground">
+                    <Users size={14} className="text-success" />
+                    {selectedAdvanceCustomer
+                      ? <>Using <strong>{selectedAdvanceCustomer.name}</strong>'s advance (₹{Math.abs(selectedAdvanceCustomer.amount).toLocaleString()})</>
+                      : <>Use customer advance ({advanceCustomers.length} available)</>
+                    }
+                  </span>
+                  <span className="text-muted-foreground">{showAdvancePicker ? '▲' : '▼'}</span>
+                </button>
+                {showAdvancePicker && (
+                  <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
+                    {selectedAdvanceCustomer && (
+                      <button
+                        type="button"
+                        onClick={() => { setAdvanceCustomerId(""); setShowAdvancePicker(false); }}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs bg-destructive/10 text-destructive font-semibold"
+                      >
+                        ✕ Don't use any advance
+                      </button>
+                    )}
+                    {advanceCustomers.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setAdvanceCustomerId(c.id); setShowAdvancePicker(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                          advanceCustomerId === c.id ? 'gradient-primary text-primary-foreground' : 'glass-card text-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold truncate">{c.name}</span>
+                          <span className="ml-2 font-bold">₹{Math.abs(c.amount).toLocaleString()}</span>
+                        </div>
+                        <div className="text-[10px] opacity-70">{c.phone}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
 
             {/* Payment Methods */}
             <p className="text-xs text-muted-foreground mb-2">Payment Method</p>
