@@ -273,43 +273,62 @@ const Billing = () => {
     ));
   };
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!paymentMode) return;
     if (paymentMode === "udhari" && (!udhariName || !udhariPhone)) return;
     if (paymentMode === "upi" && configuredUpis.length > 0 && !selectedUpi) return;
 
+    const billNo = generateBillNo();
+    const billTotalRounded = Math.round(total * 100) / 100;
+    const advUsed = selectedAdvanceCustomer ? Math.min(Math.abs(selectedAdvanceCustomer.amount), billTotalRounded) : 0;
+    const remainingPayable = Math.max(0, Math.round((billTotalRounded - advUsed) * 100) / 100);
+
+    // For udhari mode, the new udhari amount = remaining after advance applied
+    const udhariAmountToRecord = remainingPayable;
+
     const newBill: CompletedBill = {
       id: Date.now().toString(),
       items: [...items],
-      total: Math.round(total * 100) / 100,
+      total: billTotalRounded,
       paymentMode,
       upiApp: paymentMode === "upi" ? selectedUpi : undefined,
-      customerName: paymentMode === "udhari" ? udhariName : customerName || undefined,
-      customerPhone: paymentMode === "udhari" ? udhariPhone : undefined,
+      customerName: paymentMode === "udhari"
+        ? udhariName
+        : (selectedAdvanceCustomer ? selectedAdvanceCustomer.name : (customerName || undefined)),
+      customerPhone: paymentMode === "udhari"
+        ? udhariPhone
+        : (selectedAdvanceCustomer ? selectedAdvanceCustomer.phone : undefined),
       date: new Date().toISOString(),
-      billNo: generateBillNo(),
-      paymentConfirmed: paymentMode === "cash",
+      billNo,
+      paymentConfirmed: paymentMode === "cash" || (advUsed >= billTotalRounded),
+      advanceUsed: advUsed > 0 ? advUsed : undefined,
+      advanceCustomerId: advUsed > 0 ? selectedAdvanceCustomer!.id : undefined,
     };
 
     addBill(newBill);
     setLastBill(newBill);
 
-    if (paymentMode !== "udhari") {
-      speakBillPayment(newBill.total, paymentMode);
+    // Apply advance deduction (updates udhari entry, may promote to PaidOff)
+    if (advUsed > 0 && selectedAdvanceCustomer) {
+      await applyAdvance(selectedAdvanceCustomer.id, billTotalRounded, billNo);
     }
 
-    if (paymentMode === "udhari") {
+    if (paymentMode !== "udhari") {
+      speakBillPayment(remainingPayable, paymentMode);
+    }
+
+    if (paymentMode === "udhari" && udhariAmountToRecord > 0) {
       addUdhari({
         id: `udhari-${Date.now()}`,
         name: udhariName,
         phone: udhariPhone,
-        amount: newBill.total,
-        totalBilled: newBill.total,
+        amount: udhariAmountToRecord,
+        totalBilled: udhariAmountToRecord,
         date: new Date().toISOString().split("T")[0],
         billNo: newBill.billNo,
         payments: [],
       });
-      speakNewUdhari(udhariName, newBill.total);
+      speakNewUdhari(udhariName, udhariAmountToRecord);
     }
 
     setShowPayment(false);
