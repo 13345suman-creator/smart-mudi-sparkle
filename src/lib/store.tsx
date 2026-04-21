@@ -155,14 +155,11 @@ const LS_KEYS = {
 };
 
 function loadLocal<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
+  return loadLocalSync(key, fallback);
 }
 
 function saveLocal<T>(key: string, data: T) {
-  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+  savePersistent(key, data);
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -195,7 +192,33 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const firestoreActiveRef = useRef(false);
   const unsubsRef = useRef<(() => void)[]>([]);
 
-  // Save to localStorage whenever data changes (only when NOT listening to Firestore to avoid loops)
+  // ----- IndexedDB rehydration on mount -----
+  // In Median/WebView APKs, localStorage may be cleared between launches.
+  // IndexedDB usually survives. Recover whichever store has more data.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [idbBills, idbUdhari, idbPaid, idbSettings, idbProducts] = await Promise.all([
+        rehydrateFromIDB<CompletedBill[]>(LS_KEYS.bills),
+        rehydrateFromIDB<UdhariEntry[]>(LS_KEYS.udhari),
+        rehydrateFromIDB<PaidOffCustomer[]>(LS_KEYS.paidoff),
+        rehydrateFromIDB<ShopSettings>(LS_KEYS.settings),
+        rehydrateFromIDB<Product[]>(LS_KEYS.products),
+      ]);
+      if (cancelled) return;
+      if (idbBills && idbBills.length > 0) setBills(prev => prev.length === 0 ? idbBills : prev);
+      if (idbUdhari && idbUdhari.length > 0) setUdhariEntries(prev => prev.length === 0 ? idbUdhari : prev);
+      if (idbPaid && idbPaid.length > 0) setPaidOffCustomers(prev => prev.length === 0 ? idbPaid : prev);
+      if (idbProducts && idbProducts.length > 0) setProducts(prev => prev.length === 0 ? idbProducts : prev);
+      if (idbSettings && (!settings.shopName || settings.shopName === defaultSettings.shopName)) {
+        setSettings(idbSettings);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save to localStorage + IndexedDB whenever data changes
   useEffect(() => { saveLocal(LS_KEYS.bills, bills); }, [bills]);
   useEffect(() => { saveLocal(LS_KEYS.udhari, udhariEntries); }, [udhariEntries]);
   useEffect(() => { saveLocal(LS_KEYS.paidoff, paidOffCustomers); }, [paidOffCustomers]);
