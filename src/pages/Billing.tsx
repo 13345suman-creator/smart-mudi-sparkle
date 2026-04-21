@@ -107,7 +107,7 @@ th{padding:3px 2px;font-size:9px;text-transform:uppercase;border-bottom:1px soli
 };
 
 const Billing = () => {
-  const { bills, addBill, confirmBillPayment, deleteBill, addUdhari, settings, products: storeProducts } = useStore();
+  const { bills, addBill, confirmBillPayment, deleteBill, addUdhari, applyAdvance, udhariEntries, settings, products: storeProducts } = useStore();
 
   const productCatalog = useMemo(() =>
     storeProducts.map(p => ({
@@ -134,6 +134,8 @@ const Billing = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [lastBill, setLastBill] = useState<CompletedBill | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [advanceCustomerId, setAdvanceCustomerId] = useState<string>("");
+  const [showAdvancePicker, setShowAdvancePicker] = useState(false);
   const [deleteBillConfirm, setDeleteBillConfirm] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const billLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
