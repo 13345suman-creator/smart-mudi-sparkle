@@ -3,6 +3,7 @@ import { notifyBill, notifyUdhari, notifyLowStock } from "./notifications";
 import { useAuth } from "./auth";
 import { db } from "./firebase";
 import { mergeById } from "./mergeById";
+import { savePersistent, rehydrateFromIDB, loadLocalSync } from "./persistentStorage";
 import {
   collection,
   doc,
