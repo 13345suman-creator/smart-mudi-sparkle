@@ -1,88 +1,106 @@
 
-## সমস্যা বিশ্লেষণ
 
-User বলছেন: Lovable preview এ সব ঠিক কাজ করছে, কিন্তু installed APK (Median WebView) এ app বন্ধ করে আবার খুললে bills, udhari, সব data delete হয়ে যাচ্ছে।
+## সমস্যা
 
-## Root Cause
+Customer যদি Udhari তে **extra টাকা** দেয় (যেমন ₹500 udhari ছিল, দিল ₹700 → ₹200 advance), তখন সেটা negative amount হিসেবে save হয়। কিন্তু পরে যখন সেই customer **নতুন product নেয়** (Billing page থেকে), তখন advance balance থেকে automatically minus হয় না।
 
-Median WebView APK এর behavior browser এর থেকে আলাদা:
+## Current System (যা আছে)
 
-1. **localStorage clearing**: Median এর default setting এ অনেক সময় app close হলে WebView এর storage clear হয়ে যায় (specially যদি "Clear cache on exit" enabled থাকে অথবা WebView storage permission ঠিক না থাকে)
+- ✅ `payUdhari` already extra payment handle করে → entry এর `amount` negative হয়ে advance হিসেবে থাকে
+- ✅ `addUdhari` negative amount support করে (নতুন udhari থেকে advance বাদ যায়)
+- ❌ **Cash/UPI bill এ advance auto-deduct নাই** — শুধু udhari mode এ merge হয়
 
-2. **Firebase async race condition (existing bug)**: 
-   - App restart হলে `useStore` mount হয়
-   - `localStorage` থেকে data load হয় (যদি থাকে)
-   - তারপর Firebase listener attach হয়
-   - Firebase যদি empty snapshot return করে (user logged out, বা slow network), `mergeById` চলে — কিন্তু যদি localStorage ও empty থাকে (Median cleared করেছে), তাহলে দুই দিকেই empty
-   - Result: সব gone
+## সমাধান Plan
 
-3. **Median WebView এ IndexedDB/localStorage isolation**: Median এর কিছু configuration এ প্রতিবার fresh WebView session তৈরি হয়, যেটা localStorage persist করে না
+### 1. Billing page এ "Customer Select" feature যোগ করা
 
-4. **Service Worker stale state**: PWA cache APK এ corrupt হয়ে গেলে fresh empty state load হয়
-
-## Verification Plan
-
-আগে কিছু files check করব:
-- `src/lib/store.tsx` — কীভাবে localStorage থেকে initial load হচ্ছে এবং Firebase merge logic
-- Median এ data persistence এর জন্য কী strategy আছে দেখব
-
-## Solution Approach
-
-### Layer 1: Code-level Fixes (Lovable side)
-
-**A. Defensive localStorage strategy in `src/lib/store.tsx`**
-- প্রতি save এর পর immediate verify করব localStorage এ লেখা হয়েছে কিনা
-- Firebase listener এ guard add করব: যদি Firebase empty return করে কিন্তু localStorage এ আগে data ছিল (last-known state), localStorage এর data কেই source of truth ধরব
-- "Last sync timestamp" track করব — আগের session এর data থাকলে কখনো wipe করব না
-
-**B. Backup mirror in IndexedDB**
-- localStorage ছাড়াও IndexedDB তে parallel backup রাখব
-- Median এর কিছু configuration localStorage clear করে কিন্তু IndexedDB রাখে (অথবা উল্টোটা)
-- Both check করে whichever has data সেটা restore করব
-
-**C. Auto-recovery on mount**
-- App mount হওয়ার সময় যদি দেখা যায় localStorage empty কিন্তু IndexedDB তে data আছে → restore
-- যদি দেখা যায় Firebase তে data আছে কিন্তু local empty → Firebase থেকে pull
-
-### Layer 2: User-side Median Configuration (Instructions)
-
-User কে Median dashboard এ এই settings change করতে হবে:
-- **WebView Settings** → "Persistent Storage" = ON
-- **WebView Settings** → "Clear cache on exit" = OFF  
-- **App Permissions** → Storage permission grant করতে হবে install এর পরে
-- **DOM Storage** এবং **Database Storage** = enabled
-
-### Files to Modify
-
-1. **`src/lib/store.tsx`** — IndexedDB mirror, defensive merge, never-wipe guard
-2. **`src/lib/persistentStorage.ts`** (NEW) — Wrapper around localStorage + IndexedDB with auto-fallback
-
-## Plan Steps
+যখন user **যেকোনো payment mode** (cash/UPI/mixed/udhari) select করবে, একটা optional "Existing Customer" picker দেখাবে যেখানে advance থাকা customer-দের list আসবে (negative amount entries)।
 
 ```text
-1. src/lib/persistentStorage.ts (NEW)
-   - Dual-write to localStorage + IndexedDB
-   - Read: try localStorage first, fallback IndexedDB
-   - On mismatch: restore the larger/newer set to both
-
-2. src/lib/store.tsx
-   - Replace direct localStorage.getItem/setItem calls 
-     with persistentStorage wrapper for: 
-     bills, udhari, products, paidUdhari
-   - Add "lastDataTimestamp" guard:
-     If Firebase snapshot is empty AND local has data 
-     AND last save was <30 days ago → DO NOT overwrite local
-   - On mount: hydrate from IndexedDB if localStorage is empty
-
-3. Provide Median configuration instructions to user 
-   (no code change needed, just docs)
+Payment Section
+├─ Customer name input (existing)
+├─ [NEW] "Use advance balance?" toggle
+│   └─ If ON: dropdown of customers with advance
+│       Shows: "Rahim — ₹200 advance available"
+└─ Adjusted total preview:
+    Bill: ₹500
+    Advance used: -₹200
+    To pay: ₹300
 ```
 
-## What user must also do
+### 2. Auto-deduct logic
 
-Code fix করার পর APK তে:
-1. App uninstall → reinstall (ekbar fresh state দরকার)
-2. Median dashboard এ Persistent Storage enable
-3. Phone Settings → App permissions → Storage allow
+User customer select করলে:
+- Bill total থেকে advance amount বাদ যাবে (যতটুকু advance আছে অথবা যতটুকু bill, যেটা ছোট)
+- Final payable = bill_total − advance_used
+- Udhari entry update হবে: `amount += advance_used` (negative + positive = closer to 0 or positive remaining udhari)
+- যদি advance > bill → বাকি advance customer এর entry তে থাকবে
+- যদি advance = bill exactly → entry "Paid Off" এ চলে যাবে
+- যদি bill > advance এবং mode = udhari → বাকিটা new udhari হবে same entry তে
 
-কোনো প্রশ্ন আছে নাকি plan টা approve করব?
+### 3. Bill record এ track রাখা
+
+CompletedBill এ নতুন optional field:
+- `advanceUsed?: number` — কত advance ব্যবহার হয়েছে
+- `advanceCustomerId?: string` — কোন customer এর
+
+যাতে bill slip এ দেখাতে পারি: "Advance applied: ₹200"
+
+### 4. Udhari page এ advance display improve
+
+Negative amount entries এর জন্য green badge: **"₹200 Advance"** (এখন শুধু minus number দেখায়)। Total Pending calculation থেকে advance বাদ যাবে অথবা separately দেখাবে।
+
+## Files to Modify
+
+```text
+1. src/pages/Billing.tsx
+   - Add "Use Customer Advance" UI section
+   - Customer picker (only customers with negative amount)
+   - Show adjusted total
+   - On pay: call payUdhari/addUdhari with advance_used
+   - Save advanceUsed in bill
+
+2. src/lib/store.tsx
+   - Extend CompletedBill type: advanceUsed, advanceCustomerId
+   - New helper: applyAdvanceToBill(customerId, billAmount)
+     → returns { advanceUsed, remainingBill }
+     → updates udhari entry amount
+
+3. src/pages/Udhari.tsx
+   - Show "Advance" badge for negative amount entries
+   - Total Pending excludes advance amounts
+   - New summary card: "Total Advance Held: ₹X"
+
+4. Bill slip HTML (in Billing.tsx generateBillSlipHTML)
+   - If advanceUsed > 0, show line: "Advance Applied: -₹X"
+```
+
+## User Flow Example
+
+```text
+Rahim's Udhari: -₹200 (advance)
+
+New Bill: 
+  Items total = ₹500
+  
+At payment:
+  ☑ Use customer advance
+  Select: Rahim (₹200 advance)
+  
+Display:
+  Bill total:      ₹500
+  Advance used:   −₹200
+  ─────────────────────
+  Payable now:     ₹300
+  
+[Pay Cash] → Bill saved with advanceUsed=200
+            → Rahim's udhari amount: -200 + 200 = 0 → Paid Off
+```
+
+## Edge Cases Handled
+
+- Advance > Bill amount → partial use, rest stays as advance
+- Multiple customers with advance → user picks one
+- Mixed payment mode → advance applied first, rest split between cash/upi
+- Udhari mode + advance → advance reduces new udhari amount
+
