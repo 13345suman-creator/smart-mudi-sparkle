@@ -144,6 +144,19 @@ const Billing = () => {
   const total = items.reduce((sum, item) => sum + item.money, 0);
   const configuredUpis = settings.upiIds.filter(u => u.trim());
 
+  // Customers with advance balance (negative amount = deposit held)
+  const advanceCustomers = useMemo(
+    () => udhariEntries.filter(e => e.amount < 0),
+    [udhariEntries]
+  );
+  const selectedAdvanceCustomer = useMemo(
+    () => advanceCustomers.find(e => e.id === advanceCustomerId),
+    [advanceCustomers, advanceCustomerId]
+  );
+  const advanceAvailable = selectedAdvanceCustomer ? Math.abs(selectedAdvanceCustomer.amount) : 0;
+  const advanceToUse = Math.min(advanceAvailable, total);
+  const effectiveTotal = Math.max(0, Math.round((total - advanceToUse) * 100) / 100);
+
   // Sort bills newest first
   const sortedBills = useMemo(() => [...bills].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [bills]);
 
