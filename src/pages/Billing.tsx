@@ -346,6 +346,8 @@ const Billing = () => {
     setUdhariName("");
     setUdhariPhone("");
     setCustomerName("");
+    setAdvanceCustomerId("");
+    setShowAdvancePicker(false);
     setLastBill(null);
   };
 
